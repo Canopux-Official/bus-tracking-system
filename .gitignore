@@ -1,0 +1,55 @@
+# ======================================
+# Node.js (frontend & Node server)
+# ======================================
+node_modules/
+dist/
+.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ======================================
+# Python (FastAPI server)
+# ======================================
+# Virtual environment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ======================================
+# Frontend Vite build
+# ======================================
+# Vite creates build output folder
+frontend/dist/
+
+# ======================================
+# OS files
+# ======================================
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# ======================================
+# Logs
+# ======================================
+*.log
+logs/
