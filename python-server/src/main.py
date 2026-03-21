@@ -1,12 +1,12 @@
 # src/main.py
-from fastapi import FastAPI
+from src import create_app,db
+from src.database.models import Bus
 
-app = FastAPI()
+app = create_app()
 
-@app.get("/")
-def read_root():
-    return {"message": "Python server running"}
+# For dev only: create tables automatically
+with app.app_context():
+    db.create_all()
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True, app_dir="src")
+    app.run(debug=True, host="0.0.0.0", port=5000)

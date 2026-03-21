@@ -1,21 +1,19 @@
 {
   "compilerOptions": {
-    "target": "ES2020",                      // Modern JS version
-    "module": "CommonJS",                    // Node.js module system
-    "lib": ["ES2020"],                       // Available JS features
-    "outDir": "./dist",                       // Compiled JS output
-    "rootDir": "./src",                       // Source TS folder
-    // "strict": true,                           // Enable all strict type checks
-    "esModuleInterop": true,                  // For importing CommonJS modules
-    "forceConsistentCasingInFileNames": true,// Helps avoid casing errors
-    "skipLibCheck": true,                     // Skip type checking for node_modules
-    "resolveJsonModule": true,                // Import JSON files
-    "noImplicitAny": true,                    // Avoid implicit `any` types
-    "noUnusedLocals": true,                   // Warn about unused variables
-    "noUnusedParameters": true,               // Warn about unused parameters
-    "moduleResolution": "node",               // Node.js-style module resolution
-    "sourceMap": true                         // Generate source maps for debugging
+    "target": "ES2020",
+    "module": "commonjs",                    // or "Node16" – important for Node ESM
+    "moduleResolution": "node",          // must match module
+    "baseUrl": ".",                          // ← root of project (where tsconfig.json lives)
+    "paths": {
+      "@/*": ["src/*"]                       // ← this is what enables @/db/...
+    },
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    // "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
   },
-  "include": ["src/**/*"],                    // All TS files in src/
-  "exclude": ["node_modules", "dist"]         // Ignore node_modules & dist
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "drizzle", "dist"]
 }
