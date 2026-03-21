@@ -4,7 +4,7 @@ from src.crud import bus as crud_bus
 
 bp = Blueprint("bus", __name__, url_prefix="/buses")
 
-@bp.route("/", methods=["GET"])
+@bp.route("/getallbuses", methods=["GET"])
 def get_buses():
     buses = crud_bus.get_all_buses()
     result = [

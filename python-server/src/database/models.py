@@ -4,7 +4,7 @@ from sqlalchemy.dialects.postgresql import JSON
 from datetime import datetime
 
 class Bus(db.Model):
-    __tablename__ = "buses"
+    __tablename__ = "bus"
     
     id = db.Column(db.Integer, primary_key=True)
     bus_number = db.Column(db.String, unique=True, nullable=False)
