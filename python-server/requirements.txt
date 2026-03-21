@@ -1,5 +1,4 @@
-fastapi
-uvicorn
+flask
 sqlalchemy
 psycopg2-binary
 redis

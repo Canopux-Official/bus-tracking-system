@@ -1,21 +1,37 @@
-// node-server/src/server.ts
-import express from "express";
-import dotenv from "dotenv";
+// src/server.ts
+import express, { Request, Response, NextFunction } from 'express';
+import 'dotenv/config';
+import { db } from './db/dbconnection';
 
-dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const port = process.env.PORT || 4000;
 
-// Middleware to parse JSON
 app.use(express.json());
 
-// Basic route
-app.get("/", (_, res) => {
-  res.send("✅ Node.js TypeScript server is running!");
+// Health check
+app.get('/health', (req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+// Example route using Drizzle
+app.get('/users', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const allUsers = await db.query.users.findMany();
+    console.log(allUsers);
+    res.json(allUsers);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Global error handler
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error(err);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
+
+app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
 });
