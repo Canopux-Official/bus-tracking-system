@@ -104,8 +104,7 @@ export const sendLiveLocation = async (data: {
   velocity: number;
   acceleration: number;
 }) => {
-  console.log("📡 MOCK API: liveLocation", data);
-
+  console.log("📡 MOCK API:", JSON.stringify(data, null, 2));
   await delay(500);
 
   if (!isTripActive) {

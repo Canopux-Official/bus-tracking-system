@@ -18,7 +18,12 @@ export const useTracking = (tripId: string | null) => {
       return;
     }
 
-    if (intervalRef.current) return; 
+    if (!navigator.geolocation) {
+      console.error("Geolocation not supported");
+      return;
+    }
+
+    if (intervalRef.current) return;
 
     setIsTracking(true);
     setError(null);
@@ -28,6 +33,19 @@ export const useTracking = (tripId: string | null) => {
         async (pos) => {
           try {
             const { latitude, longitude, speed } = pos.coords;
+            console.log(
+              "📍 LOCATION:",
+              JSON.stringify(
+                {
+                  lat: latitude,
+                  lng: longitude,
+                  speed: speed ?? 0,
+                  time: new Date().toLocaleTimeString(),
+                },
+                null,
+                2
+              )
+            );
 
             // Velocity may be Zero (Depends on Device).
             const velocity = speed ?? 0;
@@ -63,6 +81,8 @@ export const useTracking = (tripId: string | null) => {
     }, 10000);
   };
 
+
+
   // 2. Stop Tracking (Trip still valid).
   const stopTracking = () => {
     setIsTracking(false);
@@ -72,7 +92,7 @@ export const useTracking = (tripId: string | null) => {
       intervalRef.current = null;
     }
 
-    prevSpeedRef.current = 0; 
+    prevSpeedRef.current = 0;
   };
 
   useEffect(() => {
