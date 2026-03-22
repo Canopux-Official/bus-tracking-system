@@ -10,7 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push:pg",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "simulate": "ts-node src/simulate.ts"
   },
   "keywords": [],
   "author": "",
@@ -23,12 +24,14 @@
     "express": "^5.2.1",
     "pg": "^8.20.0",
     "redis": "^5.11.0",
+    "socket.io": "^4.8.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.0",
     "@types/pg": "^8.20.0",
+    "@types/socket.io": "^3.0.1",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
