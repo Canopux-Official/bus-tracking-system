@@ -17,10 +17,12 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0",
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.1",
     "express": "^5.2.1",
     "pg": "^8.20.0",
+    "redis": "^5.11.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

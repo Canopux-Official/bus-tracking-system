@@ -7,7 +7,10 @@ async function seed() {
     try {
         console.log("🔹 Seeding database...");
 
-        // Example bus data
+        // ✅ Wipe all existing data first
+        await db.delete(bus);
+        console.log("🗑️  Cleared existing bus data.");
+
         const buses = [
             {
                 bus_number: "BUS101",
@@ -32,16 +35,13 @@ async function seed() {
             },
         ];
 
-        // Insert buses into database
-        for (const b of buses) {
-            await db.insert(bus).values(b).onConflictDoNothing();
-        }
+        // ✅ Insert fresh data
+        await db.insert(bus).values(buses);
 
         console.log("✅ Seed completed successfully!");
     } catch (err) {
         console.error("❌ Error seeding database:", err);
     } finally {
-        // Close the pool
         await db.$client.end();
     }
 }
