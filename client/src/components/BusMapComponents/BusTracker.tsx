@@ -1137,7 +1137,7 @@ interface LocationUpdate {
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const OSRM_BASE     = "https://router.project-osrm.org/route/v1/driving";
-const SOCKET_URL    = "http://localhost:4000";
+const SOCKET_URL    = import.meta.env.VITE_SOCKET_URL || "http://localhost:4000";
 const ANIM_DURATION = 10_000;
 
 const STATUS_LABELS: Record<Status, string> = {
