@@ -18,7 +18,7 @@ export const useTracking = (tripId: string | null) => {
   // Prevent Overlapping API Calls.
   const isSendingRef = useRef<boolean>(false);
 
-  
+
   // 1. Start Tracking.
   const startTracking = () => {
     if (!tripId) {
@@ -42,8 +42,10 @@ export const useTracking = (tripId: string | null) => {
           try {
             isSendingRef.current = true;
             const { latitude, longitude, speed } = pos.coords;
-            const velocity = speed ?? 0;
-            const now = Date.now();
+            const velocity =
+              speed !== null && speed !== undefined
+                ? speed
+                : prevSpeedRef.current; const now = Date.now();
             const deltaTime = (now - prevTimeRef.current) / 1000;
             const acceleration = deltaTime > 0 ? (velocity - prevSpeedRef.current) / deltaTime : 0;
 
@@ -54,14 +56,14 @@ export const useTracking = (tripId: string | null) => {
             // Log Location.
             console.log("📍 LOCATION UPDATE:", {
               lat: latitude,
-              lng: longitude,
+              lon: longitude,
               vel: velocity,
               acc: acceleration,
               time: new Date().toLocaleTimeString(),
             });
 
             // Send to Backend.
-            await sendLocation({ tripId, lat: latitude, lng: longitude, vel: velocity, acc: acceleration });
+            await sendLocation({ tripId, lat: latitude, lon: longitude, vel: velocity, acc: acceleration });
 
             // Reset Timer Display.
             setLastSent(0);
@@ -83,7 +85,7 @@ export const useTracking = (tripId: string | null) => {
           maximumAge: 0,
         }
       );
-    // Runs Every 10 Seconds.
+      // Runs Every 10 Seconds.
     }, 10000);
   };
 

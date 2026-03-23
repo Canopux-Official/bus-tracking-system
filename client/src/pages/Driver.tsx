@@ -30,11 +30,13 @@ export default function Driver() {
     try {
       setLoading(true);
       const res = await startTrip({ busNo, source, destination });
-      if (!res?.tripId) {
+      const tripId = res.tripId; 
+      if (!tripId) {
         throw new Error("Invalid response from server");
       }
-      console.log("Trip Started:", res.tripId);
-      setTripId(res.tripId);
+
+      console.log("Trip Started:", tripId);
+      setTripId(tripId);
       setTripStarted(true);
 
     } catch (err) {

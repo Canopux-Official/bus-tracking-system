@@ -2,11 +2,12 @@
 import { Request, Response } from "express";
 import { db } from "../db/dbconnection";
 import { bus } from "../db/schema/bus";
+import { eq } from "drizzle-orm";
 
 // this request for when the bus driver will enter the bus details
 export async function createBus(req: Request, res: Response): Promise<void> {
     try {
-        const { bus_number, source, destination, current } = req.body;
+        const { bus_number, source, destination } = req.body;
 
         // ── validation ──────────────────────────────────────────────────────
         if (!bus_number || !source || !destination) {
@@ -26,14 +27,14 @@ export async function createBus(req: Request, res: Response): Promise<void> {
                 bus_number,
                 source,
                 destination,
-                route : [],
-                current: current ?? false,
+                route: [],
             })
             .returning();
 
         res.status(201).json({
             success: true,
             message: "Bus created successfully.",
+            tripId: newBus.tripId,
             data: newBus,
         });
     } catch (err: unknown) {
@@ -51,6 +52,70 @@ export async function createBus(req: Request, res: Response): Promise<void> {
         }
 
         console.error("❌ createBus error:", err);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error.",
+        });
+    }
+}
+
+
+
+
+export async function endTrip(req: Request, res: Response): Promise<void> {
+    try {
+        const tripId = req.params.tripId as string;
+        // ── validation ─────────────────────────────────────────
+        if (!tripId) {
+            res.status(400).json({
+                success: false,
+                message: "tripId is required.",
+            });
+            return;
+        }
+        // ── check if trip exists ───────────────────────────────
+        const [existingTrip] = await db
+            .select()
+            .from(bus)
+            .where(eq(bus.tripId, tripId));
+
+        if (!existingTrip) {
+            res.status(404).json({
+                success: false,
+                message: "Bus trip not found.",
+            });
+            return;
+        }
+
+        // ── prevent double ending ──────────────────────────────
+        if (existingTrip.status === "completed") {
+            res.status(400).json({
+                success: false,
+                message: "Trip already ended.",
+            });
+            return;
+        }
+
+        // ── update trip ────────────────────────────────────────
+        const [updatedBus] = await db
+            .update(bus)
+            .set({
+                status: "completed",
+                endedAt: new Date(),
+                updatedAt: new Date(),
+            })
+            .where(eq(bus.tripId, tripId))
+            .returning();
+
+        res.status(200).json({
+            success: true,
+            message: "Trip ended successfully.",
+            data: updatedBus,
+        });
+
+    } catch (err) {
+        console.error("❌ endTrip error:", err);
+
         res.status(500).json({
             success: false,
             message: "Internal server error.",

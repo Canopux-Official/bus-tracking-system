@@ -56,17 +56,21 @@ const apiRequest = async (endpoint: string, options: RequestInit) => {
 // 1. Start Trip API.
 export const startTrip = async (data: { busNo: string; source: string; destination: string }) => {
   console.log("Start Trip API called with:", data);
-  return apiRequest("/start-trip", {
+  return apiRequest("/bus/create", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      bus_number: data.busNo, 
+      source: data.source,
+      destination: data.destination,
+    }),
   });
 };
 
 
 // 2. Send Location API.
-export const sendLocation = async (data: { tripId: string; lat: number; lng: number; vel: number; acc: number }) => {
+export const sendLocation = async (data: { tripId: string; lat: number; lon: number; vel: number; acc: number }) => {
   console.log("Send Live Location API called with:", data);
-  return apiRequest("/live-location", {
+  return apiRequest("/api/redis/location", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -76,8 +80,7 @@ export const sendLocation = async (data: { tripId: string; lat: number; lng: num
 // 3. End Trip API.
 export const endTrip = async (tripId: string) => {
   console.log("End Trip API called with:", tripId);
-  return apiRequest("/end-trip", {
-    method: "POST",
-    body: JSON.stringify({ tripId }),
+  return apiRequest(`/bus/end-trip/${tripId}`, {
+    method: "PATCH",
   });
 };
