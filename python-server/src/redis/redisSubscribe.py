@@ -25,5 +25,8 @@ def subscribe_to_redis():
             print("Raw data received:", raw_data)
 
             processed_data = preprocess(raw_data)
+
+            # here i also need to add this in the database using the unique tripId
+
             # Publish processed data
             publish_to_redis(processed_data)
