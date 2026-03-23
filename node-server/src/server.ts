@@ -50,9 +50,12 @@ import { Server } from 'socket.io';
 import busRoutes from './routes/busRoutes';
 import redisRoutes from './routes/redisRoutes';
 import { connectRedis, redisClient } from './redis/redisConnection';
+import cors from 'cors'
 
 const app = express();
 const httpServer = createServer(app);
+
+app.use(cors({ origin: "*" }));
 
 // ── Socket.IO setup ───────────────────────────────────────────────────────────
 export const io = new Server(httpServer, {
@@ -64,6 +67,19 @@ export const io = new Server(httpServer, {
 
 io.on("connection", (socket) => {
     console.log(`🔌 Client connected: ${socket.id}`);
+
+    // User wants to track a specific bus
+    socket.on("trackBus", (tripId: string) => {
+        console.log(`🔑 Socket ${socket.id} joining room: ${tripId}`);
+        socket.join(tripId);
+    });
+
+    // Optional: leave room if user stops tracking
+    socket.on("stopTrackBus", (tripId: string) => {
+        console.log(`🚪 Socket ${socket.id} leaving room: ${tripId}`);
+        socket.leave(tripId);
+    });
+
     socket.on("disconnect", () => {
         console.log(`❌ Client disconnected: ${socket.id}`);
     });
@@ -86,9 +102,13 @@ async function initRedis() {
         const processedData = JSON.parse(message);
         console.log("✅ Processed data received:", processedData);
 
-        // Add this log to confirm emit is firing
-        console.log(`📡 Emitting to ${io.engine.clientsCount} connected clients`);
-        io.emit("locationUpdate", processedData);
+        const { tripId } = processedData;
+
+        if (tripId) {
+            // Emit to the specific bus room
+            io.to(tripId).emit("locationUpdate", processedData);
+            console.log(`📡 Emitting update for tripId ${tripId} to room`);
+        }
     });
 }
 
