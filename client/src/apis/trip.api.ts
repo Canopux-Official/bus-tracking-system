@@ -68,7 +68,7 @@ export const startTrip = async (data: { busNo: string; source: string; destinati
 
 
 // 2. Send Location API.
-export const sendLocation = async (data: { tripId: string; lat: number; lon: number; vel: number; acc: number }) => {
+export const sendLocation = async (data: { tripId: string; lat: number; lon: number; vel: number; acc: number ,status: String}) => {
   console.log("Send Live Location API called with:", data);
   return apiRequest("/api/redis/location", {
     method: "POST",
