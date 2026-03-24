@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 
 // Push location to Redis
 export const pushLocation = async (req: Request, res: Response) => {
-    const { tripId, lat, lon, vel, acc } = req.body;
+    const { tripId, lat, lon, vel, acc ,status} = req.body;
 
     if (!tripId || lat === undefined || lon === undefined) {
         return res.status(400).json({ message: "Invalid data" });
@@ -17,7 +17,8 @@ export const pushLocation = async (req: Request, res: Response) => {
             lon,
             vel: vel ?? null,   // optional
             acc: acc ?? null,   // optional
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            status: status ?? "moving", // default to "moving" if not provided
         };
 
         // Publish to Redis channel 'raw_location'

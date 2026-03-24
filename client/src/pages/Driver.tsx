@@ -17,11 +17,18 @@ export default function Driver() {
   const [tripId, setTripId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Tracking Hook.
-  const { isTracking, startTracking, stopTracking, lastSent, error } = useTracking(tripId);
-
   const python_backend_url = import.meta.env.VITE_PYTHON_BACKEND_URL || "http://localhost:8000";
   const environment = import.meta.env.VITE_ENVIRONMENT || "development";
+
+  // Tracking Hook — destructure busStatus too
+  const { isTracking, busStatus, startTracking, stopTracking, lastSent, error } = useTracking(tripId);
+
+  // Add this status config above your return
+  const STATUS_CONFIG = {
+    idle: { label: "Idle", color: "#5a6070", bg: "#0d0f14", border: "#1e2530" },
+    moving: { label: "🟢 Moving", color: "#4ade80", bg: "#0d1a0d", border: "#2d4a2d" },
+    stopped: { label: "🔴 Stopped", color: "#f87171", bg: "#1a0d0d", border: "#4a2d2d" },
+  } as const;
 
 
   // 1. Start Trip.
@@ -197,25 +204,34 @@ export default function Driver() {
                 <span style={{ marginLeft: "auto" }}>{busNo}</span>
               </div>
 
-              {/* Controls */}
+              {/* ── Bus Status Pill ── */}
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "6px 14px", borderRadius: 20,
+                border: `1px solid ${STATUS_CONFIG[busStatus].border}`,
+                background: STATUS_CONFIG[busStatus].bg,
+                color: STATUS_CONFIG[busStatus].color,
+                fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 500,
+                transition: "all 0.3s ease",
+              }}>
+                {STATUS_CONFIG[busStatus].label}
+              </div>
+
+              {/* Start / Stop Tracking */}
               <button
                 className={`main-btn ${isTracking ? "active" : "inactive"}`}
-                onClick={() => {
-                  if (!tripId) return;
-                  isTracking ? stopTracking() : startTracking();
-                }}
+                onClick={() => { if (!tripId) return; isTracking ? stopTracking() : startTracking(); }}
               >
                 {isTracking ? "STOP" : "START"}
               </button>
 
-              {/* Status */}
+              {/* Last Sent Timer */}
               <div>
                 {isTracking
                   ? `Last sent: ${lastSent ?? 0}s ago`
-                  : "Tracking stopped"}
+                  : busStatus === "stopped" ? "Tracking stopped" : "Not tracking"}
               </div>
 
-              {/* Error */}
               {error && <p style={{ color: "red" }}>{error}</p>}
 
               {/* End Trip */}
