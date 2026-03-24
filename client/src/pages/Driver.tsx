@@ -20,6 +20,9 @@ export default function Driver() {
   // Tracking Hook.
   const { isTracking, startTracking, stopTracking, lastSent, error } = useTracking(tripId);
 
+  const python_backend_url = import.meta.env.VITE_PYTHON_BACKEND_URL || "http://localhost:8000";
+  const environment = import.meta.env.VITE_ENVIRONMENT || "development";
+
 
   // 1. Start Trip.
   const handleSubmitTrip = async () => {
@@ -29,8 +32,23 @@ export default function Driver() {
     }
     try {
       setLoading(true);
+
+      // Step 1: Wake up the Python backend
+      if (environment === "production") {
+        await fetch(python_backend_url)
+          .then(res => {
+            if (!res.ok) throw new Error("Backend wake-up failed");
+            console.log("Backend woke up!");
+          })
+          .catch(err => {
+            console.error("Failed to wake backend:", err);
+          });
+      }
+
+
       const res = await startTrip({ busNo, source, destination });
-      const tripId = res.tripId; 
+
+      const tripId = res.tripId;
       if (!tripId) {
         throw new Error("Invalid response from server");
       }
