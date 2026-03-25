@@ -85,6 +85,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import busRoutes from './routes/busRoutes';
 import redisRoutes from './routes/redisRoutes';
+import userRoutes from './routes/userRoutes';
 import { connectRedis, redisClient } from './redis/redisConnection';
 import cors from 'cors'
 
@@ -167,6 +168,7 @@ initRedis().catch(console.error);
 
 app.use("/api/redis", redisRoutes);
 app.use("/bus", busRoutes);
+app.use("/api/bus", userRoutes);
 
 httpServer.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
