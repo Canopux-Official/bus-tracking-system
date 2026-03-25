@@ -1,5 +1,6 @@
 import { useState } from "react";
 import '../styles/User.css';
+import { searchBuses } from "../apis/trip.api";
 
 type Bus = {
   tripId: string;
@@ -34,11 +35,8 @@ export default function User() {
       setLoading(true);
       setSearched(false);
 
-      const res = await fetch(
-        `/api/bus/search?source=${encodeURIComponent(source)}&destination=${encodeURIComponent(destination)}`
-      );
-
-      const data: Bus[] = await res.json();
+      const data = await searchBuses(source, destination);
+      setFilteredBuses(data);
 
       setFilteredBuses(data);
       setSearched(true);
