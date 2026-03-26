@@ -27,7 +27,7 @@ export async function createBus(req: Request, res: Response): Promise<void> {
                 bus_number,
                 source,
                 destination,
-                route: [],
+                route: [source.toLowerCase(), destination.toLowerCase()], // ✅ FIX
             })
             .returning();
 

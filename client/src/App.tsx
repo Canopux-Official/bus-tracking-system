@@ -2,6 +2,7 @@ import BusTracker from "./components/BusMapComponents/BusTracker"
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Driver from "./pages/Driver"
 import UserPage from "./components/userComponents/UserPage";
+import User from "./pages/User";
 
 function App() {
 
@@ -9,6 +10,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Driver />} />
+        <Route path="/user" element={<User />} />
         <Route path="/track" element={<UserPage />} />
         <Route path="/tracker/:tripId" element={<BusTracker />} />
       </Routes>

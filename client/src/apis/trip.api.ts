@@ -84,3 +84,16 @@ export const endTrip = async (tripId: string) => {
     method: "PATCH",
   });
 };
+
+
+// 4. Search Buses API.
+export const searchBuses = async (source: string, destination: string) => {
+  console.log("Search Buses API called with:", { source, destination });
+
+  return apiRequest(
+    `/api/bus/search?source=${encodeURIComponent(source)}&destination=${encodeURIComponent(destination)}`,
+    {
+      method: "GET",
+    }
+  );
+};
