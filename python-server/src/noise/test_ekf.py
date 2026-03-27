@@ -24,7 +24,7 @@ gps_points = [
 ]
 
 # -------------------------
-# Add noise (IMPORTANT)
+# Add noise (IMPORTANT)- not needed during real gps data
 # -------------------------
 noisy_points = []
 
