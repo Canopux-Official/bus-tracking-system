@@ -81,9 +81,16 @@ def process_gps_data(points):
 # Missing: Back to Coordinates.
 def xy_to_latlon(lat0, lon0, x, y):
     import math
+
     EARTH_RADIUS = 6371000
 
-    lat = lat0 + (y / EARTH_RADIUS) * (180 / math.pi)
-    lon = lon0 + (x / (EARTH_RADIUS * math.cos(math.radians(lat0)))) * (180 / math.pi)
+    # convert reference to radians (MATCH forward)
+    lat0_rad = math.radians(lat0)
+    lon0_rad = math.radians(lon0)
 
-    return lat, lon
+    # compute in radians
+    lat = lat0_rad + (y / EARTH_RADIUS)
+    lon = lon0_rad + (x / (EARTH_RADIUS * math.cos(lat0_rad)))
+
+    # convert back to degrees
+    return math.degrees(lat), math.degrees(lon)
