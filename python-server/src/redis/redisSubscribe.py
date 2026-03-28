@@ -128,7 +128,7 @@ def preprocess(raw_data):
     lat, lon = xy_to_latlon(lat0, lon0, latest.x, latest.y)
 
     return {
-        "bus_id": bus_id,
+        "tripId": bus_id,
         "lat": lat,
         "lon": lon,
         "velocity": latest.velocity,
@@ -146,8 +146,13 @@ def subscribe_to_redis():
     for message in pubsub.listen():
         if message['type'] == 'message':
             raw_data = json.loads(message['data'])
+            print(raw_data)
+
 
             processed_data = preprocess(raw_data)
+
+            if processed_data is None:
+                continue   
 
             # ── Store ping in Redis list ──────────────────────────────────────
             # RPUSH appends to the right of the list — O(1), very fast.
@@ -163,6 +168,8 @@ def subscribe_to_redis():
                 }))
                 # Reset TTL on every ping so the key stays alive during long trips
                 redis_client.expire(key, LOCATION_TTL_SECONDS)
+            
+            print(processed_data)
 
             if processed_data:
                 publish_to_redis(processed_data)

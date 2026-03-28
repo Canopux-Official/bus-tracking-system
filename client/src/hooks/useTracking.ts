@@ -271,7 +271,7 @@ import { sendLocation } from "../apis/trip.api";
 //   2 = traffic pause, 20s            →  below 50s, NOT saved as stop
 //
 // To go back to real GPS: set USE_DEMO = false
-const USE_DEMO = false;
+const USE_DEMO = true;
 
 const DEMO_ROUTE: [number, number, number][] = [
   [20.26316, 85.83445, 0],  // Bhubaneswar Railway Station — moving

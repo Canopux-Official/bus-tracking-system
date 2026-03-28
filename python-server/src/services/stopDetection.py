@@ -218,12 +218,13 @@
 import math
 import json
 from datetime import datetime, timezone
+import os
 
 from src import db
 from src.crud.stops import get_or_create_route, upsert_stop
 
-DWELL_THRESHOLD_SEC = 50    # set to 300 in production
-MOVE_RADIUS_METERS  = 20
+DWELL_THRESHOLD_SEC = int(os.getenv("DWELL_THRESHOLD_SEC", 50))
+MOVE_RADIUS_METERS  = int(os.getenv("MOVE_RADIUS_METERS", 20))
 
 _app = None
 
