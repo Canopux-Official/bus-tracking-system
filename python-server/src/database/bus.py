@@ -6,7 +6,7 @@ from datetime import datetime
 class Bus(db.Model):
     __tablename__ = "bus"
     
-    id = db.Column(db.Integer, primary_key=True)
+    tripId = db.Column(db.String, primary_key=True)
     bus_number = db.Column(db.String, unique=True, nullable=False)
     source = db.Column(db.String, nullable=False)
     destination = db.Column(db.String, nullable=False)

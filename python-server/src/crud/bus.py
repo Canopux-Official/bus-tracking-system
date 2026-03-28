@@ -1,5 +1,5 @@
 # src/crud/bus.py
-from src.database.models import Bus
+from src.database.bus import Bus
 from src import db
 
 def get_all_buses():
