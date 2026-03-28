@@ -62,50 +62,105 @@ export async function createBus(req: Request, res: Response): Promise<void> {
 
 
 
+// export async function endTrip(req: Request, res: Response): Promise<void> {
+//     try {
+//         const tripId = req.params.tripId as string;
+//         // ── validation ─────────────────────────────────────────
+//         if (!tripId) {
+//             res.status(400).json({
+//                 success: false,
+//                 message: "tripId is required.",
+//             });
+//             return;
+//         }
+//         // ── check if trip exists ───────────────────────────────
+//         const [existingTrip] = await db
+//             .select()
+//             .from(bus)
+//             .where(eq(bus.tripId, tripId));
+
+//         if (!existingTrip) {
+//             res.status(404).json({
+//                 success: false,
+//                 message: "Bus trip not found.",
+//             });
+//             return;
+//         }
+
+//         // ── prevent double ending ──────────────────────────────
+//         if (existingTrip.status === "completed") {
+//             res.status(400).json({
+//                 success: false,
+//                 message: "Trip already ended.",
+//             });
+//             return;
+//         }
+
+//         // ── update trip ────────────────────────────────────────
+//         const [updatedBus] = await db
+//             .update(bus)
+//             .set({
+//                 status: "completed",
+//                 endedAt: new Date(),
+//                 updatedAt: new Date(),
+//             })
+//             .where(eq(bus.tripId, tripId))
+//             .returning();
+
+//         res.status(200).json({
+//             success: true,
+//             message: "Trip ended successfully.",
+//             data: updatedBus,
+//         });
+
+//     } catch (err) {
+//         console.error("❌ endTrip error:", err);
+
+//         res.status(500).json({
+//             success: false,
+//             message: "Internal server error.",
+//         });
+//     }
+// }
+
+
 export async function endTrip(req: Request, res: Response): Promise<void> {
     try {
         const tripId = req.params.tripId as string;
-        // ── validation ─────────────────────────────────────────
+
         if (!tripId) {
-            res.status(400).json({
-                success: false,
-                message: "tripId is required.",
-            });
+            res.status(400).json({ success: false, message: "tripId is required." });
             return;
         }
-        // ── check if trip exists ───────────────────────────────
+
         const [existingTrip] = await db
             .select()
             .from(bus)
             .where(eq(bus.tripId, tripId));
 
         if (!existingTrip) {
-            res.status(404).json({
-                success: false,
-                message: "Bus trip not found.",
-            });
+            res.status(404).json({ success: false, message: "Bus trip not found." });
             return;
         }
 
-        // ── prevent double ending ──────────────────────────────
         if (existingTrip.status === "completed") {
-            res.status(400).json({
-                success: false,
-                message: "Trip already ended.",
-            });
+            res.status(400).json({ success: false, message: "Trip already ended." });
             return;
         }
 
-        // ── update trip ────────────────────────────────────────
         const [updatedBus] = await db
             .update(bus)
-            .set({
-                status: "completed",
-                endedAt: new Date(),
-                updatedAt: new Date(),
-            })
+            .set({ status: "completed", endedAt: new Date(), updatedAt: new Date() })
             .where(eq(bus.tripId, tripId))
             .returning();
+
+        // ── Trigger batch stop processing in Python ────────────────────────
+        // Fire and forget — if Python is down it logs but never blocks response
+        const PYTHON_URL = process.env.PYTHON_URL || "http://localhost:5000";
+        console.log(`[endTrip] calling Python at: ${PYTHON_URL}/internal/process-stops/${tripId}`);
+        fetch(`${PYTHON_URL}/internal/process-stops/${tripId}`, { method: "POST" })
+            .catch(err => console.error("Stop processing trigger failed:", err));
+        // ──────────────────────────────────────────────────────────────────
 
         res.status(200).json({
             success: true,
@@ -115,10 +170,6 @@ export async function endTrip(req: Request, res: Response): Promise<void> {
 
     } catch (err) {
         console.error("❌ endTrip error:", err);
-
-        res.status(500).json({
-            success: false,
-            message: "Internal server error.",
-        });
+        res.status(500).json({ success: false, message: "Internal server error." });
     }
 }

@@ -1,34 +1,18 @@
-# src/routes/bus.py
-from flask import Blueprint, jsonify, request
-from src.crud import bus as crud_bus
+# src/routes/bus.py  (or wherever your Flask routes live)
+from flask import jsonify,Blueprint
+from concurrent.futures import ThreadPoolExecutor
+from src.services.stopDetection import process_trip_stops
 
-bp = Blueprint("bus", __name__, url_prefix="/buses")
 
-@bp.route("/getallbuses", methods=["GET"])
-def get_buses():
-    buses = crud_bus.get_all_buses()
-    result = [
-        {
-            "id": b.id,
-            "bus_number": b.bus_number,
-            "source": b.source,
-            "destination": b.destination,
-            "route": b.route,
-            "current": b.current
-        }
-        for b in buses
-    ]
-    return jsonify(result)
+bp = Blueprint("bus", __name__)
 
-@bp.route("/", methods=["POST"])
-def create_new_bus():
-    data = request.json
-    bus = crud_bus.create_bus(data)
-    return jsonify({
-        "id": bus.id,
-        "bus_number": bus.bus_number,
-        "source": bus.source,
-        "destination": bus.destination,
-        "route": bus.route,
-        "current": bus.current
-    })
+_executor = ThreadPoolExecutor(max_workers=4)
+
+
+
+@bp.route("/internal/process-stops/<trip_id>", methods=["POST"])
+def trigger_stop_processing(trip_id):
+    # Fires in background — responds instantly
+    print("Running ")
+    _executor.submit(process_trip_stops, trip_id)
+    return jsonify({"message": "processing started"}), 200
