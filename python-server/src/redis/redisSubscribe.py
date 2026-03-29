@@ -137,6 +137,7 @@ def preprocess(raw_data):
         "processed_at": redis_client.time()[0]
     }
 
+res = []
 
 def subscribe_to_redis():
     pubsub = redis_client.pubsub()
@@ -146,10 +147,11 @@ def subscribe_to_redis():
     for message in pubsub.listen():
         if message['type'] == 'message':
             raw_data = json.loads(message['data'])
-            print(raw_data)
+            # print(raw_data)
 
 
-            processed_data = preprocess(raw_data)
+            # processed_data = preprocess(raw_data)
+            processed_data = raw_data
 
             if processed_data is None:
                 continue   
@@ -169,7 +171,14 @@ def subscribe_to_redis():
                 # Reset TTL on every ping so the key stays alive during long trips
                 redis_client.expire(key, LOCATION_TTL_SECONDS)
             
-            print(processed_data)
+            # # print(processed_data)
+
+            # d = {}
+            # d["lat"] = [raw_data['lat'],processed_data['lat']]
+            # d["lon"] = [raw_data['lon'],processed_data['lon']]
+            # res.append(d)
+
+            # print(f"comparsion {res}")
 
             if processed_data:
                 publish_to_redis(processed_data)

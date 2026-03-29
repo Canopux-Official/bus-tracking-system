@@ -274,15 +274,89 @@ import { sendLocation } from "../apis/trip.api";
 const USE_DEMO = false;
 
 const DEMO_ROUTE: [number, number, number][] = [
-  [20.26316, 85.83445, 0],  // Bhubaneswar Railway Station — moving
-  [20.26580, 85.83100, 0],  // moving
-  [20.26920, 85.82700, 0],  // moving
-  [20.27100, 85.82500, 6],  // STOP 1: Master Canteen Square — 60s (detected)
-  [20.27460, 85.82100, 0],  // moving
-  [20.27800, 85.81700, 2],  // traffic pause — 20s (NOT detected, below threshold)
-  [20.28150, 85.81300, 6],  // STOP 2: Sishu Bhawan Square — 60s (detected)
-  [20.28500, 85.80900, 0],  // moving
-  [20.28680, 85.80700, 0],  // destination
+  [20.294204, 85.742366, 0], // Bhubaneswar Rly Station
+  [20.293969, 85.742259, 0],
+
+  [20.29362809106558, 85.74215025839784, 0],
+  [20.293218, 85.742016, 0],
+  [20.292906, 85.741901, 0],
+
+  [20.292604, 85.741785, 0],
+  [20.292288, 85.741667, 0],
+  [20.291810, 85.741488, 0],
+  [20.291212, 85.741259, 0],
+  [20.290835, 85.741092, 0],
+  [20.290337, 85.740899, 0],
+  [20.290031, 85.740740, 0],
+  [20.289860, 85.740504, 0],
+  [20.290139, 85.740021, 0],
+  [20.290368, 85.739651, 0],
+  [20.290548, 85.739387, 0],
+  [20.290770, 85.738805, 0],
+  [20.291034, 85.738046, 0],
+  [20.291331, 85.737185, 0],
+  [20.291522, 85.736632, 0],
+
+
+  [20.291695, 85.736157, 0], // STOP 1: 
+  [20.291695, 85.736157, 0], // STOP 1:
+  [20.291695, 85.736157, 0], // STOP 1: 
+  [20.291695, 85.736157, 0], // STOP 1: 
+  [20.291695, 85.736157, 0], // STOP 1: 
+  [20.291695, 85.736157, 0],
+  [20.291695, 85.736157, 0], // stop 1
+
+
+  [20.291960, 85.735854, 0],
+  [20.291858, 85.736124, 0],
+  [20.291674, 85.736606, 0],
+  [20.291376, 85.737503, 0],
+  [20.290787, 85.739144, 0],
+  [20.290250, 85.740126, 0],
+  [20.290023, 85.740460, 0],
+  [20.290191, 85.740677, 0],
+  [20.290664, 85.740867, 0],
+  [20.291513, 85.741216, 0],
+  [20.292045, 85.741432, 0],
+  [20.292119, 85.741611, 0],
+  [20.293051, 85.741956, 0],
+
+
+  [20.293155, 85.742004, 0],
+  [20.293155, 85.742004, 0], // Traffic pause
+  [20.293155, 85.742004, 0],
+
+
+  [20.293533, 85.742125, 0],
+  [20.293692, 85.742053, 0],
+  [20.295266, 85.742555, 0],
+  [20.296111, 85.742831, 0],
+  [20.296433, 85.742970, 0],
+  [20.296333, 85.743027, 0],
+  [20.295797, 85.742879, 0],
+
+
+  [20.294433, 85.742426, 0], // STOP 2:
+  [20.294433, 85.742426, 0], // STOP 2:
+  [20.294433, 85.742426, 0], // STOP 2:
+  [20.294433, 85.742426, 0], // STOP 2:
+  [20.294433, 85.742426, 0], // STOP 2:
+  [20.294433, 85.742426, 0],
+  [20.294433, 85.742426, 0],
+  [20.294433, 85.742426, 0],
+
+
+  [20.293201, 85.742023, 0],
+  [20.293133, 85.742119, 0],
+  [20.292863, 85.742986, 0],
+  [20.292230, 85.744743, 0],
+  [20.292131, 85.746156, 0],
+  [20.292207, 85.746950, 0],
+  [20.292325, 85.748323, 0],
+
+
+  [20.292373, 85.749080, 0], // destination 
+  [20.292373, 85.749080, 0],
 ];
 
 // Small noise so stationary pings don't look perfectly frozen on the map
@@ -438,24 +512,29 @@ export const useTracking = (tripId: string | null) => {
       intervalRef.current = null;
     }
 
-    if (tripId) {
+    // ✅ Capture last position BEFORE nulling the ref
+    const lastPos = lastPosRef.current;
+
+    if (tripId && lastPos) {  // ✅ Only send if we actually have a position
       try {
         await sendLocation({
           tripId,
-          lat: lastPosRef.current?.lat ?? 0,
-          lon: lastPosRef.current?.lon ?? 0,
+          lat: lastPos.lat,
+          lon: lastPos.lon,
           vel: 0, acc: 0,
           status: "stopped",
         });
-        console.log("🛑 Stopped at:", lastPosRef.current);
+        console.log("🛑 Stopped at:", lastPos);
       } catch (err) {
         console.error("Failed to send stop signal:", err);
       }
+    } else {
+      console.warn("⚠️ stopTracking called with no last known position");
     }
 
     prevSpeedRef.current = 0;
     prevTimeRef.current = Date.now();
-    lastPosRef.current = null;
+    lastPosRef.current = null;  // ✅ Null AFTER the sendLocation call
   };
 
   // 3. Timer for Last Seen — your original, unchanged.
