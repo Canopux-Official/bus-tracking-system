@@ -44,15 +44,14 @@ def F_jacobian(x, dt):
 # Measurement Model (hx)
 # -------------------------
 def hx(x):
-    px, py, _, h, _ = x
-    return np.array([px, py, h])
+    px, py, _, _, _ = x
+    return np.array([px, py])
 
 
 def H_jacobian(x):
     return np.array([
         [1, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0],
-        [0, 0, 0, 1, 0]
+        [0, 1, 0, 0, 0]
     ])
 
 
@@ -61,7 +60,7 @@ def H_jacobian(x):
 # -------------------------
 def run_ekf(states):
 
-    kf = ExtendedKalmanFilter(dim_x=5, dim_z=3)
+    kf = ExtendedKalmanFilter(dim_x=5, dim_z=2)
 
     # Initial state
     first = states[0]
@@ -70,25 +69,17 @@ def run_ekf(states):
         first.y,
         first.velocity,
         first.heading,
-        0.0   # 🔥 omega starts unknown
+        0.0
     ])
 
     # Covariance
-    kf.P = np.diag([10, 10, 5, 1, 1])
+    kf.P = np.diag([200, 200, 50, 10, 10])
 
     # Process noise
-    kf.Q = np.diag([
-        5.0,   # x
-        5.0,   # y
-        5.0,   # velocity
-        0.1,   # heading
-        1.0    # omega
-    ])
+    kf.Q = np.diag([5, 5, 2, 0.5, 1])
 
     filtered = []
-
     prev_time = first.timestamp
-    prev_heading = first.heading
 
     for i, curr in enumerate(states):
 
@@ -100,43 +91,71 @@ def run_ekf(states):
         # Time step
         # -------------------------
         dt = curr.timestamp - prev_time
+
         if dt <= 0:
             dt = 1.0
+        elif dt > 3:
+            dt = 3.0
+
         prev_time = curr.timestamp
 
-        prev_heading = curr.heading
-
         # -------------------------
-        # ✅ Predict (FIXED)
+        # Predict
         # -------------------------
         kf.F = F_jacobian(kf.x, dt)
-
-        # State prediction
         kf.x = fx(kf.x, dt)
-
-        # 🔥 CRITICAL FIX: covariance prediction
         kf.P = kf.F @ kf.P @ kf.F.T + kf.Q
 
         # -------------------------
         # Measurement
         # -------------------------
-        z = np.array([
-            curr.x,
-            curr.y,
-            curr.heading
-        ])
+        z = np.array([curr.x, curr.y])
 
         # -------------------------
-        # Measurement noise
+        # Measurement noise (adaptive)
         # -------------------------
         acc = curr.accuracy if curr.accuracy is not None else 8.0
+        acc = max(2.0, min(acc, 15.0))
 
-        acc = min(acc, 10.0)
+        speed = curr.velocity
+
+        if speed < 5:
+            factor = 1.0
+        elif speed < 15:
+            factor = 1.2
+        else:
+            factor = 1.5
+
+        effective_acc = acc * factor
+
         kf.R = np.diag([
-            acc**2,
-            acc**2,
-            0.05
+            effective_acc**2,
+            effective_acc**2
         ])
+
+        # -------------------------
+        # Gating (Mahalanobis)
+        # -------------------------
+        z_pred = hx(kf.x)
+        y = z - z_pred
+
+        H = H_jacobian(kf.x)
+        S = H @ kf.P @ H.T + kf.R
+
+        mahal = y.T @ np.linalg.inv(S) @ y
+
+        if i>5 and mahal > 20:
+            # keep prediction instead of skipping
+            filtered.append(State(
+                x=kf.x[0],
+                y=kf.x[1],
+                velocity=kf.x[2],
+                heading=kf.x[3],
+                omega=kf.x[4],
+                timestamp=curr.timestamp,
+                accuracy=curr.accuracy
+            ))
+            continue
 
         # -------------------------
         # Update

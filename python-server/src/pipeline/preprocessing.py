@@ -44,20 +44,46 @@ def process_gps_data(points):
             accuracy = 8.0  # realistic fallback (meters)
 
         x, y = latlon_to_xy(lat0, lon0, lat, lon)
+        if prev_x is not None:
+            dx = x - prev_x
+            dy = y - prev_y
+
+            dt = (timestamp - prev_time) if prev_time else 1.0
+            if dt <= 0:
+                dt = 1.0
+
+            computed_v = math.sqrt(dx*dx + dy*dy) / dt
+            velocity = 0.7 * velocity + 0.3 * computed_v
+
+        if prev_x is not None:
+            dx = x - prev_x
+            dy = y - prev_y
+            dist = math.sqrt(dx*dx + dy*dy)
+
+            if dist > 150:   # 50 meters jump = bad GPS
+                continue
 
         
         if prev_x is None:
             heading = 0.0
             omega = 0.0
         else:
-            heading = compute_heading(prev_x, prev_y, x, y)
+            new_heading = compute_heading(prev_x, prev_y, x, y)
+
+            if prev_heading is None:
+                heading = new_heading
+            else:
+                heading = normalize_angle(0.5 * prev_heading + 0.5 * new_heading)
 
             # compute dt safely
             dt = (timestamp - prev_time) if prev_time is not None else 1.0
             if dt <= 0:
                 dt = 1.0
 
-            omega = 0.0
+            if prev_heading is None:
+                omega = 0.0
+            else:
+                omega = normalize_angle(heading - prev_heading) / dt
 
         states.append(State(
             x=x,
