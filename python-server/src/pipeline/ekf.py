@@ -3,183 +3,71 @@ import math
 from filterpy.kalman import ExtendedKalmanFilter
 from src.pipeline.models import State
 
-# -------------------------
-# Utility
-# -------------------------
 def normalize_angle(angle):
     return (angle + math.pi) % (2 * math.pi) - math.pi
 
-
-# -------------------------
-# Motion Model (fx)
-# -------------------------
 def fx(x, dt):
+    # State: [0:x, 1:y, 2:v, 3:h, 4:w]
     px, py, v, h, w = x
-
-    px = px + v * math.cos(h) * dt
-    py = py + v * math.sin(h) * dt
-    h = h + w * dt
-
-    h = normalize_angle(h)
-
+    px += v * math.cos(h) * dt
+    py += v * math.sin(h) * dt
+    h = normalize_angle(h + w * dt)
+    # v and w are assumed constant during the dt step (CTRV model)
     return np.array([px, py, v, h, w])
 
-
-# -------------------------
-# Jacobian of Motion Model
-# -------------------------
 def F_jacobian(x, dt):
     _, _, v, h, _ = x
+    # Partial derivatives of fx with respect to [x, y, v, h, w]
+    F = np.eye(5)
+    F[0, 2] = math.cos(h) * dt      # dfx/dv
+    F[0, 3] = -v * math.sin(h) * dt # dfx/dh
+    F[1, 2] = math.sin(h) * dt      # dfy/dv
+    F[1, 3] = v * math.cos(h) * dt  # dfy/dh
+    F[3, 4] = dt                    # dh/dw
+    return F
 
-    return np.array([
-        [1, 0, math.cos(h) * dt, -v * math.sin(h) * dt, 0],
-        [0, 1, math.sin(h) * dt,  v * math.cos(h) * dt, 0],
-        [0, 0, 1,                 0,                    0],
-        [0, 0, 0,                 1,                    dt],
-        [0, 0, 0,                 0,                    1]
-    ])
-
-
-# -------------------------
-# Measurement Model (hx)
-# -------------------------
 def hx(x):
-    px, py, _, _, _ = x
-    return np.array([px, py])
-
+    return np.array([x[0], x[1]])
 
 def H_jacobian(x):
-    return np.array([
-        [1, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0]
-    ])
+    H = np.zeros((2, 5))
+    H[0, 0] = 1.0
+    H[1, 1] = 1.0
+    return H
 
-
-# -------------------------
-# Main EKF
-# -------------------------
 def run_ekf(states):
-
     kf = ExtendedKalmanFilter(dim_x=5, dim_z=2)
+    f = states[0]
+    kf.x = np.array([f.x, f.y, f.velocity, f.heading, f.omega])
+    
+    # P: Start with low uncertainty to prevent the "Point 1 Jump"
+    kf.P = np.eye(5) * 1.0 
 
-    # Initial state
-    first = states[0]
-    kf.x = np.array([
-        first.x,
-        first.y,
-        first.velocity,
-        first.heading,
-        0.0
-    ])
+    # Q: Process Noise - Low for position, Moderate for Velocity/Heading
+    # This allows the bus to "drift" into turns without the model fighting it.
+    kf.Q = np.diag([0.1, 0.1, 1.0, 0.5, 0.2])
 
-    # Covariance
-    kf.P = np.diag([200, 200, 50, 10, 10])
+    # R: Measurement Noise - Crucial!
+    # If the error is 86m, your R might be too high (ignoring GPS).
+    # Let's set it to a firm 10.0 (roughly 3.1 meters of GPS wobble).
+    kf.R = np.diag([10.0, 10.0])
 
-    # Process noise
-    kf.Q = np.diag([5, 5, 2, 0.5, 1])
+    filtered = [f]
+    for i in range(1, len(states)):
+        curr = states[i]
+        dt = max(0.01, curr.timestamp - filtered[-1].timestamp)
 
-    filtered = []
-    prev_time = first.timestamp
-
-    for i, curr in enumerate(states):
-
-        if i == 0:
-            filtered.append(curr)
-            continue
-
-        # -------------------------
-        # Time step
-        # -------------------------
-        dt = curr.timestamp - prev_time
-
-        if dt <= 0:
-            dt = 1.0
-        elif dt > 3:
-            dt = 3.0
-
-        prev_time = curr.timestamp
-
-        # -------------------------
         # Predict
-        # -------------------------
         kf.F = F_jacobian(kf.x, dt)
         kf.x = fx(kf.x, dt)
-        kf.P = kf.F @ kf.P @ kf.F.T + kf.Q
+        kf.predict()
 
-        # -------------------------
-        # Measurement
-        # -------------------------
-        z = np.array([curr.x, curr.y])
-
-        # -------------------------
-        # Measurement noise (adaptive)
-        # -------------------------
-        acc = curr.accuracy if curr.accuracy is not None else 8.0
-        acc = max(2.0, min(acc, 15.0))
-
-        speed = curr.velocity
-
-        if speed < 5:
-            factor = 1.0
-        elif speed < 15:
-            factor = 1.2
-        else:
-            factor = 1.5
-
-        effective_acc = acc * factor
-
-        kf.R = np.diag([
-            effective_acc**2,
-            effective_acc**2
-        ])
-
-        # -------------------------
-        # Gating (Mahalanobis)
-        # -------------------------
-        z_pred = hx(kf.x)
-        y = z - z_pred
-
-        H = H_jacobian(kf.x)
-        S = H @ kf.P @ H.T + kf.R
-
-        mahal = y.T @ np.linalg.inv(S) @ y
-
-        if i>5 and mahal > 20:
-            # keep prediction instead of skipping
-            filtered.append(State(
-                x=kf.x[0],
-                y=kf.x[1],
-                velocity=kf.x[2],
-                heading=kf.x[3],
-                omega=kf.x[4],
-                timestamp=curr.timestamp,
-                accuracy=curr.accuracy
-            ))
-            continue
-
-        # -------------------------
         # Update
-        # -------------------------
-        kf.update(
-            z,
-            HJacobian=H_jacobian,
-            Hx=hx
-        )
-
-        # Normalize heading
+        z = np.array([curr.x, curr.y])
+        kf.update(z, HJacobian=H_jacobian, Hx=hx)
+        
+        # Post-Update: Normalize heading
         kf.x[3] = normalize_angle(kf.x[3])
 
-        # -------------------------
-        # Save
-        # -------------------------
-        filtered.append(State(
-            x=kf.x[0],
-            y=kf.x[1],
-            velocity=kf.x[2],
-            heading=kf.x[3],
-            omega=kf.x[4],
-            timestamp=curr.timestamp,
-            accuracy=curr.accuracy
-        ))
-
+        filtered.append(State(kf.x[0], kf.x[1], kf.x[2], kf.x[3], kf.x[4], curr.timestamp))
     return filtered
