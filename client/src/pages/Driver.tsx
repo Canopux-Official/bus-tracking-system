@@ -232,8 +232,25 @@ export default function Driver() {
                   : busStatus === "stopped" ? "Tracking stopped" : "Not tracking"}
               </div>
 
-              {error && <p style={{ color: "red" }}>{error}</p>}
-
+              {/* Replace your current error display */}
+              {error && (
+                <div style={{
+                  color: "#f87171", background: "#1a0d0d", border: "1px solid #4a2d2d",
+                  borderRadius: 10, padding: "10px 14px", fontSize: 13
+                }}>
+                  ⚠️ {error}
+                  {!isTracking && tripStarted && (
+                    <button
+                      onClick={startTracking}
+                      style={{
+                        marginLeft: 12, color: "#4ade80", background: "none",
+                        border: "1px solid #2d4a2d", borderRadius: 6, padding: "2px 10px", cursor: "pointer"
+                      }}>
+                      Tap to Resume
+                    </button>
+                  )}
+                </div>
+              )}
               {/* End Trip */}
               <button className="btn-end" onClick={handleEndTrip}>
                 END TRIP
