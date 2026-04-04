@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from src import db
 from src.database.stops import RouteStop, StopObservation
 
-MATCH_RADIUS_METERS = 20    # two positions within this = same stop
+MATCH_RADIUS_METERS = 30    # two positions within this = same stop
 
 
 def _haversine_meters(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
