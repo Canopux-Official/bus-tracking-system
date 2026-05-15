@@ -769,9 +769,25 @@ interface LogEntry {
 function makeBusIcon(opacity = 1) {
   return L.divIcon({
     className: "",
-    html: `<div class="bike-icon-inner smt-bike-icon" style="opacity:${opacity}">🚌</div>`,
-    iconSize: [38, 38],
-    iconAnchor: [19, 19],
+    html: `
+      <div class="smt-bike-icon" style="opacity:${opacity};width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+        <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+          <!-- Outer glow ring -->
+          <circle cx="20" cy="20" r="18" fill="rgba(74,222,128,0.15)" stroke="#4ade80" stroke-width="1.5"/>
+          <!-- Arrow body pointing UP (north = 0°) -->
+          <polygon
+            points="20,6 30,30 20,25 10,30"
+            fill="#4ade80"
+            stroke="#0d0f14"
+            stroke-width="1.5"
+            stroke-linejoin="round"
+          />
+          <!-- Center dot -->
+          <circle cx="20" cy="20" r="2.5" fill="#0d0f14"/>
+        </svg>
+      </div>`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
   });
 }
 
@@ -886,91 +902,63 @@ export default function BusTracker() {
 
   // ── animate segment ──────────────────────────────────────────────────────
   const animateSegment = useCallback(
-    (from: LatLng, to: LatLng) => {
-      const map = mapRef.current;
-      if (!map) return;
+  (from: LatLng, to: LatLng) => {
+    const map = mapRef.current;
+    if (!map) return;
 
-      stopAnimation();
+    stopAnimation();
 
-      if (routeLayerRef.current) {
-        map.removeLayer(routeLayerRef.current);
-        routeLayerRef.current = null;
+    // straight line between the two GPS pings — no OSRM, no routing
+    const routePoints: LatLng[] = [from, to];
+    routePointsRef.current = routePoints;
+    cumulDistRef.current = buildCumulativeDist(routePoints);
+
+    if (!markerRef.current) {
+      markerRef.current = L.marker(from, { icon: makeBusIcon() }).addTo(map);
+    } else {
+      markerRef.current.setLatLng(from);
+    }
+
+    startTimeRef.current = null;
+    setStatus("riding");
+
+    const animate = (ts: number): void => {
+      if (startTimeRef.current === null) startTimeRef.current = ts;
+      const raw = Math.min((ts - startTimeRef.current) / ANIM_DURATION, 1);
+      const t = easeInOut(raw);
+      const pos = getPositionAt(t, routePointsRef.current, cumulDistRef.current);
+
+      markerRef.current?.setLatLng(pos);
+      currentPosRef.current = pos;
+
+      if (raw < 1) {
+        const nextPos = getPositionAt(
+          easeInOut(Math.min(raw + 0.01, 1)),
+          routePointsRef.current,
+          cumulDistRef.current
+        );
+        const deg = bearing(pos, nextPos);
+        const iconEl = markerRef.current
+          ?.getElement()
+          ?.querySelector<HTMLDivElement>(".smt-bike-icon");
+        if (iconEl) iconEl.style.transform = `rotate(${deg}deg)`;
       }
 
-      const run = (routePoints: LatLng[]) => {
-        routePointsRef.current = routePoints;
-        cumulDistRef.current = buildCumulativeDist(routePoints);
-
-        routeLayerRef.current = L.polyline(routePoints, {
-          color: "#4ade80",
-          weight: 4,
-          opacity: 0.65,
-        }).addTo(map);
-
-        map.fitBounds(routeLayerRef.current.getBounds(), { padding: [60, 60], maxZoom: 16 });
-
-        if (!markerRef.current) {
-          markerRef.current = L.marker(from, { icon: makeBusIcon() }).addTo(map);
-        } else {
-          markerRef.current.setLatLng(from);
-        }
-
-        startTimeRef.current = null;
-        setStatus("riding");
-
-        const animate = (ts: number): void => {
-          if (startTimeRef.current === null) startTimeRef.current = ts;
-          const raw = Math.min((ts - startTimeRef.current) / ANIM_DURATION, 1);
-          const t = easeInOut(raw);
-          const pos = getPositionAt(t, routePointsRef.current, cumulDistRef.current);
-
-          markerRef.current?.setLatLng(pos);
-          currentPosRef.current = pos;
-
-          if (raw < 1) {
-            const nextPos = getPositionAt(
-              easeInOut(Math.min(raw + 0.01, 1)),
-              routePointsRef.current,
-              cumulDistRef.current
-            );
-            const deg = bearing(pos, nextPos);
-            const iconEl = markerRef.current
-              ?.getElement()
-              ?.querySelector<HTMLDivElement>(".smt-bike-icon");
-            if (iconEl) iconEl.style.transform = `rotate(${deg - 90}deg)`;
-          }
-
-          if (raw < 1) {
-            animFrameRef.current = requestAnimationFrame(animate);
-          } else {
-            const finalPos = routePointsRef.current[routePointsRef.current.length - 1] ?? to;
-            currentPosRef.current = finalPos;
-            markerRef.current?.setLatLng(finalPos);
-            setStatus("waiting");
-            animFrameRef.current = null;
-          }
-        };
-
+      if (raw < 1) {
         animFrameRef.current = requestAnimationFrame(animate);
-      };
+      } else {
+        const finalPos = to;
+        currentPosRef.current = finalPos;
+        markerRef.current?.setLatLng(finalPos);
+        setStatus("waiting");
+        animFrameRef.current = null;
+      }
+    };
 
-      const url =
-        `${OSRM_BASE}/${from[1]},${from[0]};${to[1]},${to[0]}` +
-        `?overview=full&geometries=polyline`;
-
-      fetch(url)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.code === "Ok" && data.routes?.length) {
-            run(decodePolyline(data.routes[0].geometry));
-          } else {
-            run(buildFallbackPath(from, to));
-          }
-        })
-        .catch(() => run(buildFallbackPath(from, to)));
-    },
-    [stopAnimation]
-  );
+    animFrameRef.current = requestAnimationFrame(animate);
+  },
+  [stopAnimation]
+);
 
   // ── keep always-fresh refs for callbacks used inside the socket effect ───
   const joinRoomRef = useRef(joinRoom);
