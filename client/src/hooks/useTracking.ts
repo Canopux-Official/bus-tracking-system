@@ -564,7 +564,6 @@
 import { useEffect, useRef, useState } from "react";
 import { sendLocation } from "../apis/trip.api";
 
-<<<<<<< HEAD
 // ─── Demo route (Bhubaneswar) ─────────────────────────────────────────────────
 // [lat, lng, dwell_pings]
 // dwell_pings = how many consecutive 10s pings to send at this exact spot
@@ -638,10 +637,6 @@ const jitter = () => (Math.random() - 0.5) * 0.0001;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-=======
-const USE_DEMO = false;
-
->>>>>>> e4d7fa157222fa68b0a055bfb23aed7e89ddae35
 export const useTracking = (tripId: string | null) => {
 
   const [isTracking, setIsTracking]  = useState(false);
@@ -809,15 +804,8 @@ export const useTracking = (tripId: string | null) => {
     }
   };
 
-<<<<<<< HEAD
   // 2. Stop Tracking — sends final "stopped" ping with last known position.
   const stopTracking = async () => {     
-=======
-
-  // 6. STOP TRACKING.
-  const stopTracking = async () => {
-    isTrackingRef.current = false;
->>>>>>> e4d7fa157222fa68b0a055bfb23aed7e89ddae35
     setIsTracking(false);
     setBusStatus("stopped");
 
