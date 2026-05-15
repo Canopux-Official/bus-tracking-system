@@ -597,7 +597,7 @@ interface LocationUpdate {
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
-const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
+// const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 const ANIM_DURATION = 10_000;
 const SLOT_MS = 10_000; // enforce 10s cadence between animations
@@ -616,20 +616,20 @@ const STATUS_LABELS: Record<Status, string> = {
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const easeInOut = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 
-function decodePolyline(encoded: string): LatLng[] {
-  const points: LatLng[] = [];
-  let idx = 0, lat = 0, lng = 0;
-  while (idx < encoded.length) {
-    let b: number, shift = 0, result = 0;
-    do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-    lat += result & 1 ? ~(result >> 1) : result >> 1;
-    shift = 0; result = 0;
-    do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-    lng += result & 1 ? ~(result >> 1) : result >> 1;
-    points.push([lat / 1e5, lng / 1e5]);
-  }
-  return points;
-}
+// function decodePolyline(encoded: string): LatLng[] {
+//   const points: LatLng[] = [];
+//   let idx = 0, lat = 0, lng = 0;
+//   while (idx < encoded.length) {
+//     let b: number, shift = 0, result = 0;
+//     do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+//     lat += result & 1 ? ~(result >> 1) : result >> 1;
+//     shift = 0; result = 0;
+//     do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+//     lng += result & 1 ? ~(result >> 1) : result >> 1;
+//     points.push([lat / 1e5, lng / 1e5]);
+//   }
+//   return points;
+// }
 
 function buildCumulativeDist(coords: LatLng[]): number[] {
   const cd: number[] = [0];
@@ -669,15 +669,15 @@ function bearing(from: LatLng, to: LatLng): number {
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
-function buildFallbackPath(from: LatLng, to: LatLng, steps = 40): LatLng[] {
-  const path: LatLng[] = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const arc = Math.sin(t * Math.PI) * 0.003;
-    path.push([lerp(from[0], to[0], t) + arc, lerp(from[1], to[1], t)]);
-  }
-  return path;
-}
+// function buildFallbackPath(from: LatLng, to: LatLng, steps = 40): LatLng[] {
+//   const path: LatLng[] = [];
+//   for (let i = 0; i <= steps; i++) {
+//     const t = i / steps;
+//     const arc = Math.sin(t * Math.PI) * 0.003;
+//     path.push([lerp(from[0], to[0], t) + arc, lerp(from[1], to[1], t)]);
+//   }
+//   return path;
+// }
 
 // ── styles ────────────────────────────────────────────────────────────────────
 
