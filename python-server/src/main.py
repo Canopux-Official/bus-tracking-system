@@ -84,14 +84,11 @@ from src import create_app, db
 from src.database.bus import Bus
 from src.database.stops import RouteStop, StopObservation
 from src.redis.redisSubscribe import subscribe_to_redis
-from src.services.stopDetection import init_detection
 
 app = create_app()
 
 with app.app_context():
     db.create_all()
-
-init_detection(app)
 
 def start_redis_listener():
     subscribe_to_redis()

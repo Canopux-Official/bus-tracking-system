@@ -1,4 +1,3 @@
-# src/__init__.py
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -11,9 +10,8 @@ def create_app():
     
     db.init_app(app)
     
-    # Import and register routes
-    from src.routes import bus
-    app.register_blueprint(bus.bp)
+    from src.routes import stops
+    app.register_blueprint(stops.stops_bp)
 
     CORS(app)
     

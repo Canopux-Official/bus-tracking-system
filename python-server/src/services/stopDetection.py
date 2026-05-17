@@ -215,148 +215,148 @@
 #   On trip end  → one Redis read + one DB session with N writes
 #                  runs in background thread so end-trip API responds instantly
 
-import math
-import json
-from datetime import datetime, timezone
-import os
+# import math
+# import json
+# from datetime import datetime, timezone
+# import os
 
-from src import db
-from src.crud.stops import get_or_create_route, upsert_stop
+# from src import db
+# from src.crud.stops import get_or_create_route, upsert_stop
 
-DWELL_THRESHOLD_SEC = int(os.getenv("DWELL_THRESHOLD_SEC", 50))
-MOVE_RADIUS_METERS  = int(os.getenv("MOVE_RADIUS_METERS", 20))
+# DWELL_THRESHOLD_SEC = int(os.getenv("DWELL_THRESHOLD_SEC", 50))
+# MOVE_RADIUS_METERS  = int(os.getenv("MOVE_RADIUS_METERS", 20))
 
-_app = None
-
-
-def init_detection(app):
-    global _app
-    _app = app
+# _app = None
 
 
-def _haversine_meters(lat1, lng1, lat2, lng2):
-    R = 6_371_000
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlam = math.radians(lng2 - lng1)
-    a = (math.sin(dphi / 2) ** 2
-         + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2)
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+# def init_detection(app):
+#     global _app
+#     _app = app
 
 
-def _extract_stops_from_pings(pings: list[dict]) -> list[tuple[float, float]]:
-    """
-    Pure Python dwell detection — no DB, no network, just a loop.
-    Walks through the ping list and returns a list of (lat, lng) tuples
-    where the bus was stationary for DWELL_THRESHOLD_SEC or more.
-
-    HOW IT WORKS (same logic as before, but offline):
-      - anchor = position where bus first went still
-      - dwell_sec accumulates while bus stays within MOVE_RADIUS_METERS of anchor
-      - when dwell_sec crosses threshold → record as candidate stop, reset
-      - when bus moves away → reset anchor to new position
-
-    Each ping represents 10 seconds (your send interval).
-    """
-    if not pings:
-        return []
-
-    candidate_stops: list[tuple[float, float]] = []
-
-    anchor_lat = pings[0]["lat"]
-    anchor_lng = pings[0]["lon"]
-    dwell_sec  = 0
-
-    for ping in pings[1:]:
-        lat = ping["lat"]
-        lng = ping["lon"]
-
-        dist = _haversine_meters(anchor_lat, anchor_lng, lat, lng)
-
-        if dist > MOVE_RADIUS_METERS:
-            # Bus moved — reset anchor
-            anchor_lat = lat
-            anchor_lng = lng
-            dwell_sec  = 0
-        else:
-            # Bus still near anchor — accumulate 10s
-            dwell_sec += 10
-            if dwell_sec >= DWELL_THRESHOLD_SEC:
-                candidate_stops.append((anchor_lat, anchor_lng))
-                print(f"[stopDetection] stop found at ({anchor_lat:.5f}, {anchor_lng:.5f})")
-                # Reset dwell so same stop isn't added multiple times
-                dwell_sec = 0
-
-    return candidate_stops
+# def _haversine_meters(lat1, lng1, lat2, lng2):
+#     R = 6_371_000
+#     phi1, phi2 = math.radians(lat1), math.radians(lat2)
+#     dphi = math.radians(lat2 - lat1)
+#     dlam = math.radians(lng2 - lng1)
+#     a = (math.sin(dphi / 2) ** 2
+#          + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2)
+#     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-def process_trip_stops(trip_id: str):
-    """
-    Called ONCE when a trip ends.
-    Runs in a background thread so the end-trip API response is instant.
+# def _extract_stops_from_pings(pings: list[dict]) -> list[tuple[float, float]]:
+#     """
+#     Pure Python dwell detection — no DB, no network, just a loop.
+#     Walks through the ping list and returns a list of (lat, lng) tuples
+#     where the bus was stationary for DWELL_THRESHOLD_SEC or more.
 
-    Steps:
-      1. Fetch all pings from Redis
-      2. Detect stops in pure Python
-      3. Bulk write to DB
-      4. Clean up Redis key
-    """
-    if not _app:
-        print("[stopDetection] app not initialised")
-        return
+#     HOW IT WORKS (same logic as before, but offline):
+#       - anchor = position where bus first went still
+#       - dwell_sec accumulates while bus stays within MOVE_RADIUS_METERS of anchor
+#       - when dwell_sec crosses threshold → record as candidate stop, reset
+#       - when bus moves away → reset anchor to new position
 
-    from src.redis.redisConnection import redis_client
+#     Each ping represents 10 seconds (your send interval).
+#     """
+#     if not pings:
+#         return []
 
-    key = f"trip:{trip_id}:locs"
+#     candidate_stops: list[tuple[float, float]] = []
 
-    # ── Step 1: Fetch all pings from Redis ────────────────────────────────────
-    # LRANGE key 0 -1 = get entire list, one round trip to Redis
-    raw_pings = redis_client.lrange(key, 0, -1)
-    if not raw_pings:
-        print(f"[stopDetection] no pings found for trip {trip_id}")
-        return
+#     anchor_lat = pings[0]["lat"]
+#     anchor_lng = pings[0]["lon"]
+#     dwell_sec  = 0
 
-    pings = [json.loads(p) for p in raw_pings]
-    print(f"[stopDetection] processing {len(pings)} pings for trip {trip_id}")
+#     for ping in pings[1:]:
+#         lat = ping["lat"]
+#         lng = ping["lon"]
 
-    # ── Step 2: Pure Python stop detection ───────────────────────────────────
-    candidate_stops = _extract_stops_from_pings(pings)
+#         dist = _haversine_meters(anchor_lat, anchor_lng, lat, lng)
 
-    if not candidate_stops:
-        print(f"[stopDetection] no stops found for trip {trip_id}")
-        redis_client.delete(key)
-        return
+#         if dist > MOVE_RADIUS_METERS:
+#             # Bus moved — reset anchor
+#             anchor_lat = lat
+#             anchor_lng = lng
+#             dwell_sec  = 0
+#         else:
+#             # Bus still near anchor — accumulate 10s
+#             dwell_sec += 10
+#             if dwell_sec >= DWELL_THRESHOLD_SEC:
+#                 candidate_stops.append((anchor_lat, anchor_lng))
+#                 print(f"[stopDetection] stop found at ({anchor_lat:.5f}, {anchor_lng:.5f})")
+#                 # Reset dwell so same stop isn't added multiple times
+#                 dwell_sec = 0
 
-    print(f"[stopDetection] {len(candidate_stops)} stop(s) found — writing to DB")
+#     return candidate_stops
 
-    # ── Step 3: Fetch trip meta + bulk write to DB ────────────────────────────
-    try:
-        with _app.app_context():
-            from src.database.bus import Bus
-            trip = Bus.query.filter_by(tripId=trip_id).first()
-            if not trip:
-                print(f"[stopDetection] trip {trip_id} not found in DB")
-                redis_client.delete(key)
-                return
 
-            # get_or_create_route once for this trip
-            route = get_or_create_route(
-                trip.bus_number,
-                trip.source,
-                trip.destination
-            )
+# def process_trip_stops(trip_id: str):
+#     """
+#     Called ONCE when a trip ends.
+#     Runs in a background thread so the end-trip API response is instant.
 
-            # upsert every candidate stop — all in one session/transaction
-            for lat, lng in candidate_stops:
-                upsert_stop(route, lat, lng)
+#     Steps:
+#       1. Fetch all pings from Redis
+#       2. Detect stops in pure Python
+#       3. Bulk write to DB
+#       4. Clean up Redis key
+#     """
+#     if not _app:
+#         print("[stopDetection] app not initialised")
+#         return
 
-            db.session.commit()
-            print(f"[stopDetection] committed {len(candidate_stops)} stop(s) for trip {trip_id}")
+#     from src.redis.redisConnection import redis_client
 
-    except Exception as e:
-        db.session.rollback()
-        print(f"[stopDetection] DB error: {e}")
+#     key = f"trip:{trip_id}:locs"
 
-    # ── Step 4: Clean up Redis list ───────────────────────────────────────────
-    redis_client.delete(key)
-    print(f"[stopDetection] cleaned up Redis key {key}")
+#     # ── Step 1: Fetch all pings from Redis ────────────────────────────────────
+#     # LRANGE key 0 -1 = get entire list, one round trip to Redis
+#     raw_pings = redis_client.lrange(key, 0, -1)
+#     if not raw_pings:
+#         print(f"[stopDetection] no pings found for trip {trip_id}")
+#         return
+
+#     pings = [json.loads(p) for p in raw_pings]
+#     print(f"[stopDetection] processing {len(pings)} pings for trip {trip_id}")
+
+#     # ── Step 2: Pure Python stop detection ───────────────────────────────────
+#     candidate_stops = _extract_stops_from_pings(pings)
+
+#     if not candidate_stops:
+#         print(f"[stopDetection] no stops found for trip {trip_id}")
+#         redis_client.delete(key)
+#         return
+
+#     print(f"[stopDetection] {len(candidate_stops)} stop(s) found — writing to DB")
+
+#     # ── Step 3: Fetch trip meta + bulk write to DB ────────────────────────────
+#     try:
+#         with _app.app_context():
+#             from src.database.bus import Bus
+#             trip = Bus.query.filter_by(tripId=trip_id).first()
+#             if not trip:
+#                 print(f"[stopDetection] trip {trip_id} not found in DB")
+#                 redis_client.delete(key)
+#                 return
+
+#             # get_or_create_route once for this trip
+#             route = get_or_create_route(
+#                 trip.bus_number,
+#                 trip.source,
+#                 trip.destination
+#             )
+
+#             # upsert every candidate stop — all in one session/transaction
+#             for lat, lng in candidate_stops:
+#                 upsert_stop(route, lat, lng)
+
+#             db.session.commit()
+#             print(f"[stopDetection] committed {len(candidate_stops)} stop(s) for trip {trip_id}")
+
+#     except Exception as e:
+#         db.session.rollback()
+#         print(f"[stopDetection] DB error: {e}")
+
+#     # ── Step 4: Clean up Redis list ───────────────────────────────────────────
+#     redis_client.delete(key)
+#     print(f"[stopDetection] cleaned up Redis key {key}")

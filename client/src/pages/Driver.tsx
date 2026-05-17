@@ -17,16 +17,18 @@ export default function Driver() {
   const [tripId, setTripId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Pin Stop State.
+  const [pinning, setPinning] = useState(false);
+  const [pinFeedback, setPinFeedback] = useState<"success" | "error" | null>(null);
+
   const python_backend_url = import.meta.env.VITE_PYTHON_BACKEND_URL || "http://localhost:8000";
   const environment = import.meta.env.VITE_ENVIRONMENT || "development";
 
-  // Tracking Hook — destructure busStatus too
   const { isTracking, busStatus, startTracking, stopTracking, lastSent, error } = useTracking(tripId);
 
-  // Add this status config above your return
   const STATUS_CONFIG = {
-    idle: { label: "Idle", color: "#5a6070", bg: "#0d0f14", border: "#1e2530" },
-    moving: { label: "🟢 Moving", color: "#4ade80", bg: "#0d1a0d", border: "#2d4a2d" },
+    idle:    { label: "Idle",        color: "#5a6070", bg: "#0d0f14", border: "#1e2530" },
+    moving:  { label: "🟢 Moving",  color: "#4ade80", bg: "#0d1a0d", border: "#2d4a2d" },
     stopped: { label: "🔴 Stopped", color: "#f87171", bg: "#1a0d0d", border: "#4a2d2d" },
   } as const;
 
@@ -40,7 +42,6 @@ export default function Driver() {
     try {
       setLoading(true);
 
-      // Step 1: Wake up the Python backend
       if (environment === "production") {
         await fetch(python_backend_url)
           .then(res => {
@@ -52,13 +53,9 @@ export default function Driver() {
           });
       }
 
-
       const res = await startTrip({ busNo, source, destination });
-
       const tripId = res.tripId;
-      if (!tripId) {
-        throw new Error("Invalid response from server");
-      }
+      if (!tripId) throw new Error("Invalid response from server");
 
       console.log("Trip Started:", tripId);
       setTripId(tripId);
@@ -89,6 +86,45 @@ export default function Driver() {
     setBusNo("");
     setSource("");
     setDestination("");
+  };
+
+
+  // 3. Pin Stop — grabs current GPS position and sends to backend.
+  const handlePinStop = async () => {
+    if (!tripId) return;
+
+    setPinning(true);
+    setPinFeedback(null);
+
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 5000,
+        })
+      );
+
+      const { latitude: lat, longitude: lng } = position.coords;
+
+      const res = await fetch(`${python_backend_url}/api/trips/${tripId}/pin-stop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat, lng }),
+      });
+
+      if (!res.ok) throw new Error("Pin stop request failed");
+
+      console.log(`[pinStop] stop pinned at (${lat}, ${lng})`);
+      setPinFeedback("success");
+
+    } catch (err) {
+      console.error("Pin stop failed:", err);
+      setPinFeedback("error");
+    } finally {
+      setPinning(false);
+      // Clear feedback after 3 seconds
+      setTimeout(() => setPinFeedback(null), 3000);
+    }
   };
 
 
@@ -129,7 +165,6 @@ export default function Driver() {
                 </div>
               </div>
 
-              {/* Source */}
               <div className="field">
                 <div className="field-inner">
                   <span className="field-icon"><LocationPin /></span>
@@ -143,7 +178,6 @@ export default function Driver() {
                 </div>
               </div>
 
-              {/* Destination */}
               <div className="field">
                 <div className="field-inner">
                   <span className="field-icon" style={{ color: "#3b82f6" }}>
@@ -159,7 +193,6 @@ export default function Driver() {
                 </div>
               </div>
 
-              {/* Route Preview */}
               {source && destination && (
                 <div className="route-card fade-in">
                   <div className="route-left">
@@ -167,7 +200,6 @@ export default function Driver() {
                     <div style={{ height: 28, width: 1, background: "linear-gradient(#f59e0b, #2563eb)", margin: "4px 3px" }} />
                     <div className="route-dot to" />
                   </div>
-
                   <div style={{ flex: 1 }}>
                     <div className="route-label">{source}</div>
                     <div className="route-sub">Departure</div>
@@ -175,14 +207,10 @@ export default function Driver() {
                     <div className="route-label">{destination}</div>
                     <div className="route-sub">Destination</div>
                   </div>
-
-                  <div style={{ color: "var(--muted)" }}>
-                    <ArrowRight />
-                  </div>
+                  <div style={{ color: "var(--muted)" }}><ArrowRight /></div>
                 </div>
               )}
 
-              {/* Start Button */}
               <button
                 className="btn-cta"
                 onClick={handleSubmitTrip}
@@ -204,7 +232,7 @@ export default function Driver() {
                 <span style={{ marginLeft: "auto" }}>{busNo}</span>
               </div>
 
-              {/* ── Bus Status Pill ── */}
+              {/* Bus Status Pill */}
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
                 padding: "6px 14px", borderRadius: 20,
@@ -232,7 +260,36 @@ export default function Driver() {
                   : busStatus === "stopped" ? "Tracking stopped" : "Not tracking"}
               </div>
 
-              {/* Replace your current error display */}
+              {/* Pin Stop Button */}
+              <button
+                onClick={handlePinStop}
+                disabled={pinning || !isTracking}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: 12,
+                  border: `1px solid ${pinFeedback === "success" ? "#2d4a2d" : pinFeedback === "error" ? "#4a2d2d" : "#2a3a2a"}`,
+                  background: pinFeedback === "success" ? "#0d1a0d" : pinFeedback === "error" ? "#1a0d0d" : "#0f1a0f",
+                  color: pinFeedback === "success" ? "#4ade80" : pinFeedback === "error" ? "#f87171" : "#86efac",
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: pinning || !isTracking ? "not-allowed" : "pointer",
+                  opacity: !isTracking ? 0.4 : 1,
+                  transition: "all 0.3s ease",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {pinning
+                  ? "📍 Pinning..."
+                  : pinFeedback === "success"
+                  ? "✅ Stop Pinned"
+                  : pinFeedback === "error"
+                  ? "❌ Pin Failed — Retry"
+                  : "📍 PIN STOP"}
+              </button>
+
+              {/* Error */}
               {error && (
                 <div style={{
                   color: "#f87171", background: "#1a0d0d", border: "1px solid #4a2d2d",
@@ -244,17 +301,20 @@ export default function Driver() {
                       onClick={startTracking}
                       style={{
                         marginLeft: 12, color: "#4ade80", background: "none",
-                        border: "1px solid #2d4a2d", borderRadius: 6, padding: "2px 10px", cursor: "pointer"
+                        border: "1px solid #2d4a2d", borderRadius: 6,
+                        padding: "2px 10px", cursor: "pointer"
                       }}>
                       Tap to Resume
                     </button>
                   )}
                 </div>
               )}
+
               {/* End Trip */}
               <button className="btn-end" onClick={handleEndTrip}>
                 END TRIP
               </button>
+
             </div>
           )}
         </div>
