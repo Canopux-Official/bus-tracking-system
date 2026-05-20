@@ -12,7 +12,7 @@ class Bus(db.Model):
     route       = db.Column(JSON, nullable=False)
     current     = db.Column(db.Boolean, default=False, nullable=False)
     created_at  = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False) 
     
     # ✅ Added to match Node schema
     status      = db.Column(db.String, default="active", nullable=False)  # "active" | "completed"

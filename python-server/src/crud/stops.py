@@ -111,6 +111,8 @@
 from datetime import datetime, timezone
 from src import db
 from src.database.stops import RouteStop, StopObservation
+import requests
+import os
 
 
 def get_or_create_route(bus_id: str, source: str, destination: str) -> RouteStop:
@@ -128,14 +130,32 @@ def get_or_create_route(bus_id: str, source: str, destination: str) -> RouteStop
     db.session.flush()
     return route
 
+def get_place_name(lat: float, lng: float) -> str:
+    api_key = os.getenv("LOCATIONIQ_TOKEN")
+    url = f"https://us1.locationiq.com/v1/reverse?key={api_key}&lat={lat}&lon={lng}&format=json"
+    try:
+        res = requests.get(url, timeout=5)
+        addr = res.json().get("address", {})
+        return (
+            addr.get("amenity") or
+            addr.get("road") or
+            addr.get("suburb") or
+            addr.get("city") or
+            "Unknown"
+        )
+    except Exception:
+        return "Unknown"
+
 
 def pin_stop(route_stop: RouteStop, lat: float, lng: float) -> StopObservation:
+    name = get_place_name(lat, lng)                        # 👈 fetch name
     stop = StopObservation(
         route_stop_id=route_stop.id,
         lat=lat,
         lng=lng,
+        name=name,                                         # 👈 store it
         pinned_at=datetime.now(timezone.utc),
     )
     db.session.add(stop)
-    print(f"[stops] driver pinned stop at ({lat:.5f}, {lng:.5f})")
+    print(f"[stops] driver pinned stop at ({lat:.5f}, {lng:.5f}) — {name}")
     return stop
