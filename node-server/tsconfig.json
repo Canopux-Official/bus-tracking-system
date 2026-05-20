@@ -1,16 +1,15 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "commonjs",                    // or "Node16" – important for Node ESM
-    "moduleResolution": "node",          // must match module
-    "baseUrl": ".",                          // ← root of project (where tsconfig.json lives)
+    "module": "commonjs",
+    "moduleResolution": "bundler",       // replaces deprecated "node"
+    "rootDir": "./src",                  // explicitly set to fix layout warning
     "paths": {
-      "@/*": ["src/*"]                       // ← this is what enables @/db/...
+      "@/*": ["./src/*"]                 // no need for baseUrl when rootDir is set
     },
     "outDir": "./dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    // "strict": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
