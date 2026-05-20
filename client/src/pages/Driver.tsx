@@ -353,11 +353,11 @@ export default function Driver() {
 
   const { isTracking, busStatus, startTracking, stopTracking, resetTrip, lastSent, error, lastLocation } = useTracking(tripId);
 
-  const STATUS_CONFIG = {
-    idle:    { label: "Idle",        color: "#5a6070", bg: "#0d0f14", border: "#1e2530" },
-    moving:  { label: "🟢 Moving",  color: "#4ade80", bg: "#0d1a0d", border: "#2d4a2d" },
-    stopped: { label: "🔴 Stopped", color: "#f87171", bg: "#1a0d0d", border: "#4a2d2d" },
-  } as const;
+  // const STATUS_CONFIG = {
+  //   idle:    { label: "Idle",        color: "#5a6070", bg: "#0d0f14", border: "#1e2530" },
+  //   moving:  { label: "🟢 Moving",  color: "#4ade80", bg: "#0d1a0d", border: "#2d4a2d" },
+  //   stopped: { label: "🔴 Stopped", color: "#f87171", bg: "#1a0d0d", border: "#4a2d2d" },
+  // } as const;
 
 
   // 1. Start Trip.
