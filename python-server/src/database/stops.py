@@ -123,6 +123,7 @@ class StopObservation(db.Model):
     lat       = db.Column(db.Float, nullable=False)
     lng       = db.Column(db.Float, nullable=False)
     pinned_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
+    name      = db.Column(db.String(300), nullable=True)   # 👈 add this
 
     __table_args__ = (
         db.Index("idx_stop_obs_route_stop_id", "route_stop_id"),

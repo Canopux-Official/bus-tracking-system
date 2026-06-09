@@ -22,9 +22,10 @@
 
 // // ── constants ─────────────────────────────────────────────────────────────────
 
-// const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
+// // const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
 // const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 // const ANIM_DURATION = 10_000;
+// const SLOT_MS = 10_000; // enforce 10s cadence between animations
 
 // const STATUS_LABELS: Record<Status, string> = {
 //   idle: "Waiting for connection…",
@@ -32,7 +33,7 @@
 //   riding: "Bus moving",
 //   waiting: "Waiting for next location…",
 //   stopped: "Bus stopped",
-//   last_known: "Showing last known location",   // ✅ new
+//   last_known: "Showing last known location",
 // };
 
 // // ── pure helpers ──────────────────────────────────────────────────────────────
@@ -40,20 +41,20 @@
 // const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 // const easeInOut = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 
-// function decodePolyline(encoded: string): LatLng[] {
-//   const points: LatLng[] = [];
-//   let idx = 0, lat = 0, lng = 0;
-//   while (idx < encoded.length) {
-//     let b: number, shift = 0, result = 0;
-//     do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-//     lat += result & 1 ? ~(result >> 1) : result >> 1;
-//     shift = 0; result = 0;
-//     do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-//     lng += result & 1 ? ~(result >> 1) : result >> 1;
-//     points.push([lat / 1e5, lng / 1e5]);
-//   }
-//   return points;
-// }
+// // function decodePolyline(encoded: string): LatLng[] {
+// //   const points: LatLng[] = [];
+// //   let idx = 0, lat = 0, lng = 0;
+// //   while (idx < encoded.length) {
+// //     let b: number, shift = 0, result = 0;
+// //     do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+// //     lat += result & 1 ? ~(result >> 1) : result >> 1;
+// //     shift = 0; result = 0;
+// //     do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+// //     lng += result & 1 ? ~(result >> 1) : result >> 1;
+// //     points.push([lat / 1e5, lng / 1e5]);
+// //   }
+// //   return points;
+// // }
 
 // function buildCumulativeDist(coords: LatLng[]): number[] {
 //   const cd: number[] = [0];
@@ -93,15 +94,15 @@
 //   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 // }
 
-// function buildFallbackPath(from: LatLng, to: LatLng, steps = 40): LatLng[] {
-//   const path: LatLng[] = [];
-//   for (let i = 0; i <= steps; i++) {
-//     const t = i / steps;
-//     const arc = Math.sin(t * Math.PI) * 0.003;
-//     path.push([lerp(from[0], to[0], t) + arc, lerp(from[1], to[1], t) + arc]);
-//   }
-//   return path;
-// }
+// // function buildFallbackPath(from: LatLng, to: LatLng, steps = 40): LatLng[] {
+// //   const path: LatLng[] = [];
+// //   for (let i = 0; i <= steps; i++) {
+// //     const t = i / steps;
+// //     const arc = Math.sin(t * Math.PI) * 0.003;
+// //     path.push([lerp(from[0], to[0], t) + arc, lerp(from[1], to[1], t)]);
+// //   }
+// //   return path;
+// // }
 
 // // ── styles ────────────────────────────────────────────────────────────────────
 
@@ -188,13 +189,40 @@
 //   isNew: boolean;
 // }
 
+// // ── marker HTML helper ────────────────────────────────────────────────────────
+
+// function makeBusIcon(opacity = 1) {
+//   return L.divIcon({
+//     className: "",
+//     html: `
+//       <div class="smt-bike-icon" style="opacity:${opacity};width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+//         <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+//           <!-- Outer glow ring -->
+//           <circle cx="20" cy="20" r="18" fill="rgba(74,222,128,0.15)" stroke="#4ade80" stroke-width="1.5"/>
+//           <!-- Arrow body pointing UP (north = 0°) -->
+//           <polygon
+//             points="20,6 30,30 20,25 10,30"
+//             fill="#4ade80"
+//             stroke="#0d0f14"
+//             stroke-width="1.5"
+//             stroke-linejoin="round"
+//           />
+//           <!-- Center dot -->
+//           <circle cx="20" cy="20" r="2.5" fill="#0d0f14"/>
+//         </svg>
+//       </div>`,
+//     iconSize: [40, 40],
+//     iconAnchor: [20, 20],
+//   });
+// }
+
 // // ── component ─────────────────────────────────────────────────────────────────
 
 // export default function BusTracker() {
-//   // ── Read tripId from URL (:tripId param) ─────────────────────────────────
 //   const { tripId } = useParams<{ tripId: string }>();
 //   const navigate = useNavigate();
 
+//   // ── map refs ────────────────────────────────────────────────────────────
 //   const mapContainerRef = useRef<HTMLDivElement>(null);
 //   const mapRef = useRef<Map | null>(null);
 //   const markerRef = useRef<Marker | null>(null);
@@ -208,6 +236,15 @@
 //   const cumulDistRef = useRef<number[]>([]);
 //   const joinedRoomRef = useRef<string | null>(null);
 
+//   // ── queue refs (NEW) ────────────────────────────────────────────────────
+//   // Holds incoming location updates that are waiting to be animated.
+//   const updateQueueRef = useRef<LocationUpdate[]>([]);
+//   // Timestamp (ms) of when the last animation slot began.
+//   const lastAnimStartRef = useRef<number>(0);
+//   // The pending setTimeout handle for the next scheduled animation.
+//   const schedulerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+//   // ── ui state ────────────────────────────────────────────────────────────
 //   const [status, setStatus] = useState<Status>("idle");
 //   const [connected, setConnected] = useState(false);
 //   const [lastUpdate, setLastUpdate] = useState<LocationUpdate | null>(null);
@@ -225,6 +262,7 @@
 //   // ── reset map state ──────────────────────────────────────────────────────
 //   const resetMapState = useCallback(() => {
 //     const map = mapRef.current;
+
 //     if (routeLayerRef.current && map) {
 //       map.removeLayer(routeLayerRef.current);
 //       routeLayerRef.current = null;
@@ -237,6 +275,15 @@
 //       cancelAnimationFrame(animFrameRef.current);
 //       animFrameRef.current = null;
 //     }
+
+//     // ── clear the queue and any pending scheduler (NEW) ──
+//     updateQueueRef.current = [];
+//     if (schedulerRef.current !== null) {
+//       clearTimeout(schedulerRef.current);
+//       schedulerRef.current = null;
+//     }
+//     lastAnimStartRef.current = 0;
+
 //     currentPosRef.current = null;
 //     routePointsRef.current = [];
 //     cumulDistRef.current = [];
@@ -280,94 +327,137 @@
 
 //   // ── animate segment ──────────────────────────────────────────────────────
 //   const animateSegment = useCallback(
-//     (from: LatLng, to: LatLng) => {
-//       const map = mapRef.current;
-//       if (!map) return;
+//   (from: LatLng, to: LatLng) => {
+//     const map = mapRef.current;
+//     if (!map) return;
 
-//       stopAnimation();
+//     stopAnimation();
 
-//       if (routeLayerRef.current) {
-//         map.removeLayer(routeLayerRef.current);
-//         routeLayerRef.current = null;
+//     // straight line between the two GPS pings — no OSRM, no routing
+//     const routePoints: LatLng[] = [from, to];
+//     routePointsRef.current = routePoints;
+//     cumulDistRef.current = buildCumulativeDist(routePoints);
+
+//     if (!markerRef.current) {
+//       markerRef.current = L.marker(from, { icon: makeBusIcon() }).addTo(map);
+//     } else {
+//       markerRef.current.setLatLng(from);
+//     }
+
+//     startTimeRef.current = null;
+//     setStatus("riding");
+
+//     const animate = (ts: number): void => {
+//       if (startTimeRef.current === null) startTimeRef.current = ts;
+//       const raw = Math.min((ts - startTimeRef.current) / ANIM_DURATION, 1);
+//       const t = easeInOut(raw);
+//       const pos = getPositionAt(t, routePointsRef.current, cumulDistRef.current);
+
+//       markerRef.current?.setLatLng(pos);
+//       currentPosRef.current = pos;
+
+//       if (raw < 1) {
+//         const nextPos = getPositionAt(
+//           easeInOut(Math.min(raw + 0.01, 1)),
+//           routePointsRef.current,
+//           cumulDistRef.current
+//         );
+//         const deg = bearing(pos, nextPos);
+//         const iconEl = markerRef.current
+//           ?.getElement()
+//           ?.querySelector<HTMLDivElement>(".smt-bike-icon");
+//         if (iconEl) iconEl.style.transform = `rotate(${deg}deg)`;
 //       }
 
-//       const run = (routePoints: LatLng[]) => {
-//         routePointsRef.current = routePoints;
-//         cumulDistRef.current = buildCumulativeDist(routePoints);
-
-//         routeLayerRef.current = L.polyline(routePoints, {
-//           color: "#4ade80",
-//           weight: 4,
-//           opacity: 0.65,
-//         }).addTo(map);
-
-//         map.fitBounds(routeLayerRef.current.getBounds(), { padding: [60, 60], maxZoom: 16 });
-
-//         if (!markerRef.current) {
-//           markerRef.current = L.marker(from, {
-//             icon: L.divIcon({
-//               className: "",
-//               html: `<div class="bike-icon-inner" id="smt-bike-icon">🚌</div>`,
-//               iconSize: [38, 38],
-//               iconAnchor: [19, 19],
-//             }),
-//           }).addTo(map);
-//         } else {
-//           markerRef.current.setLatLng(from);
-//         }
-
-//         startTimeRef.current = null;
-//         setStatus("riding");
-
-//         const animate = (ts: number): void => {
-//           if (startTimeRef.current === null) startTimeRef.current = ts;
-//           const raw = Math.min((ts - startTimeRef.current) / ANIM_DURATION, 1);
-//           const t = easeInOut(raw);
-//           const pos = getPositionAt(t, routePointsRef.current, cumulDistRef.current);
-
-//           markerRef.current?.setLatLng(pos);
-//           currentPosRef.current = pos;
-
-//           if (raw < 1) {
-//             const nextPos = getPositionAt(
-//               easeInOut(Math.min(raw + 0.01, 1)),
-//               routePointsRef.current,
-//               cumulDistRef.current
-//             );
-//             const deg = bearing(pos, nextPos);
-//             const iconEl = document.getElementById("smt-bike-icon") as HTMLDivElement | null;
-//             if (iconEl) iconEl.style.transform = `rotate(${deg - 90}deg)`;
-//           }
-
-//           if (raw < 1) {
-//             animFrameRef.current = requestAnimationFrame(animate);
-//           } else {
-//             currentPosRef.current = to;
-//             setStatus("waiting");
-//             animFrameRef.current = null;
-//           }
-//         };
-
+//       if (raw < 1) {
 //         animFrameRef.current = requestAnimationFrame(animate);
-//       };
+//       } else {
+//         const finalPos = to;
+//         currentPosRef.current = finalPos;
+//         markerRef.current?.setLatLng(finalPos);
+//         setStatus("waiting");
+//         animFrameRef.current = null;
+//       }
+//     };
 
-//       const url =
-//         `${OSRM_BASE}/${from[1]},${from[0]};${to[1]},${to[0]}` +
-//         `?overview=full&geometries=polyline`;
+//     animFrameRef.current = requestAnimationFrame(animate);
+//   },
+//   [stopAnimation]
+// );
 
-//       fetch(url)
-//         .then((r) => r.json())
-//         .then((data) => {
-//           if (data.code === "Ok" && data.routes?.length) {
-//             run(decodePolyline(data.routes[0].geometry));
-//           } else {
-//             run(buildFallbackPath(from, to));
+//   // ── keep always-fresh refs for callbacks used inside the socket effect ───
+//   const joinRoomRef = useRef(joinRoom);
+//   const animateSegmentRef = useRef(animateSegment);
+//   useEffect(() => { joinRoomRef.current = joinRoom; }, [joinRoom]);
+//   useEffect(() => { animateSegmentRef.current = animateSegment; }, [animateSegment]);
+
+//   // ── scheduleNext (NEW) ───────────────────────────────────────────────────
+//   // Dequeues one update and animates it after the correct delay so that
+//   // animations are always spaced >= SLOT_MS apart.
+//   //
+//   //  • Ping arrives at  8s → elapsed = 8s → delay = 2s → starts at 10s  ✅
+//   //  • Ping arrives at 12s → elapsed = 12s → delay = 0  → starts now     ✅
+//   //  • Multiple queued  → each one waits its own SLOT_MS from the previous ✅
+//   const scheduleNextRef = useRef<() => void>(() => {});
+
+//   const scheduleNext = useCallback(() => {
+//     // Nothing waiting → nothing to do.
+//     if (updateQueueRef.current.length === 0) {
+//       schedulerRef.current = null;
+//       return;
+//     }
+
+//     const now = Date.now();
+//     const elapsed = now - lastAnimStartRef.current;
+//     // If we're behind schedule (elapsed > SLOT_MS) delay is 0 — start immediately.
+//     const delay = Math.max(0, SLOT_MS - elapsed);
+
+//     schedulerRef.current = setTimeout(() => {
+//       schedulerRef.current = null;
+
+//       const next = updateQueueRef.current.shift();
+//       if (!next) return;
+
+//       lastAnimStartRef.current = Date.now();
+//       const newPos: LatLng = [next.lat, next.lon];
+
+//       if (currentPosRef.current === null) {
+//         // Very first point — just place the marker, no animation yet.
+//         currentPosRef.current = newPos;
+//         setStatus("waiting");
+//         const map = mapRef.current;
+//         if (map) {
+//           map.setView(newPos, 15);
+//           if (!markerRef.current) {
+//             markerRef.current = L.marker(newPos, { icon: makeBusIcon() }).addTo(map);
 //           }
-//         })
-//         .catch(() => run(buildFallbackPath(from, to)));
-//     },
-//     [stopAnimation]
-//   );
+//         }
+//         addLog(`[${new Date().toLocaleTimeString()}] First point set. Waiting for next location…`);
+//       } else {
+//         // Animate from current position to new position.
+//         animateSegmentRef.current(currentPosRef.current, newPos);
+//       }
+
+//       // Schedule the next item in the queue (if any).
+//       scheduleNextRef.current();
+//     }, delay);
+//   }, [addLog]);
+
+//   // Keep scheduleNextRef in sync so the setTimeout callback always calls
+//   // the latest version (avoids stale closure capturing old addLog etc.).
+//   useEffect(() => { scheduleNextRef.current = scheduleNext; }, [scheduleNext]);
+
+//   // ── enqueueUpdate (NEW) ──────────────────────────────────────────────────
+//   // Called by the socket handler instead of animateSegment directly.
+//   // Pushes the update onto the queue and kicks the scheduler if idle.
+//   const enqueueUpdate = useCallback((data: LocationUpdate) => {
+//     updateQueueRef.current.push(data);
+
+//     // Only start the scheduler if it isn't already running.
+//     if (schedulerRef.current === null) {
+//       scheduleNextRef.current();
+//     }
+//   }, []);
 
 //   // ── init Leaflet ─────────────────────────────────────────────────────────
 //   useEffect(() => {
@@ -376,7 +466,7 @@
 //     const map = L.map(mapContainerRef.current, {
 //       zoomControl: true,
 //       attributionControl: false,
-//     }).setView([28.62, 77.22], 13);
+//     }).setView([20.2961, 85.8245], 13);
 
 //     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 //       maxZoom: 19,
@@ -397,8 +487,7 @@
 //       setConnected(true);
 //       setStatus("connecting");
 //       addLog(`[${new Date().toLocaleTimeString()}] Connected to server.`);
-//       // Auto-join the room from URL param
-//       setTimeout(() => joinRoom(tripId), 100);
+//       setTimeout(() => joinRoomRef.current(tripId), 100);
 //     });
 
 //     socket.on("disconnect", () => {
@@ -408,43 +497,23 @@
 //       addLog(`[${new Date().toLocaleTimeString()}] Disconnected from server.`);
 //     });
 
-//     // ✅ Only one locationUpdate handler — for live updates only
 //     socket.on("locationUpdate", (data: LocationUpdate) => {
 //       if (data.tripId !== joinedRoomRef.current) return;
 
-//       const newPos: LatLng = [data.lat, data.lon];
 //       setLastUpdate(data);
 //       addLog(
 //         `[${new Date().toLocaleTimeString()}] Trip ${data.tripId.slice(-6)} → lat:${data.lat.toFixed(4)} lon:${data.lon.toFixed(4)}${data.vel != null ? ` vel:${data.vel}km/h` : ""}`
 //       );
 
-//       if (currentPosRef.current === null) {
-//         currentPosRef.current = newPos;
-//         setStatus("waiting");
-//         const map = mapRef.current;
-//         if (map) {
-//           map.setView(newPos, 15);
-//           if (!markerRef.current) {
-//             markerRef.current = L.marker(newPos, {
-//               icon: L.divIcon({
-//                 className: "",
-//                 html: `<div class="bike-icon-inner" id="smt-bike-icon">🚌</div>`,
-//                 iconSize: [38, 38],
-//                 iconAnchor: [19, 19],
-//               }),
-//             }).addTo(map);
-//           }
-//         }
-//         addLog(`[${new Date().toLocaleTimeString()}] First point set. Waiting for next location…`);
-//       } else {
-//         animateSegment(currentPosRef.current, newPos);
-//       }
+//       // ── hand off to the queue instead of animating directly ──
+//       enqueueUpdate(data);
 //     });
 
-//     // ✅ Separate handler — only fires for cached last known location
 //     socket.on("lastKnownLocation", (data: LocationUpdate) => {
 //       if (data.tripId !== joinedRoomRef.current) return;
 
+//       // Last-known is shown immediately — it's a one-off snapshot, not a
+//       // live update, so it bypasses the queue entirely.
 //       const pos: LatLng = [data.lat, data.lon];
 //       currentPosRef.current = pos;
 //       setLastUpdate(data);
@@ -454,14 +523,7 @@
 //       if (map) {
 //         map.setView(pos, 15);
 //         if (!markerRef.current) {
-//           markerRef.current = L.marker(pos, {
-//             icon: L.divIcon({
-//               className: "",
-//               html: `<div class="bike-icon-inner" id="smt-bike-icon" style="opacity:0.6">🚌</div>`,
-//               iconSize: [38, 38],
-//               iconAnchor: [19, 19],
-//             }),
-//           }).addTo(map);
+//           markerRef.current = L.marker(pos, { icon: makeBusIcon(0.6) }).addTo(map);
 //         }
 //       }
 
@@ -473,8 +535,9 @@
 //       socket.disconnect();
 //       socketRef.current = null;
 //     };
+//     // intentionally once — callbacks accessed via always-fresh refs above
 //     // eslint-disable-next-line react-hooks/exhaustive-deps
-//   }, []);  // intentionally once; joinRoom / animateSegment are stable
+//   }, []);
 
 //   // ── derived UI ────────────────────────────────────────────────────────────
 //   const chipClass =
@@ -571,8 +634,6 @@
 //   );
 // }
 
-
-
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import L from "leaflet";
@@ -597,10 +658,9 @@ interface LocationUpdate {
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
-// const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 const ANIM_DURATION = 10_000;
-const SLOT_MS = 10_000; // enforce 10s cadence between animations
+const SLOT_MS = 10_000;
 
 const STATUS_LABELS: Record<Status, string> = {
   idle: "Waiting for connection…",
@@ -615,21 +675,6 @@ const STATUS_LABELS: Record<Status, string> = {
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const easeInOut = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-
-// function decodePolyline(encoded: string): LatLng[] {
-//   const points: LatLng[] = [];
-//   let idx = 0, lat = 0, lng = 0;
-//   while (idx < encoded.length) {
-//     let b: number, shift = 0, result = 0;
-//     do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-//     lat += result & 1 ? ~(result >> 1) : result >> 1;
-//     shift = 0; result = 0;
-//     do { b = encoded.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-//     lng += result & 1 ? ~(result >> 1) : result >> 1;
-//     points.push([lat / 1e5, lng / 1e5]);
-//   }
-//   return points;
-// }
 
 function buildCumulativeDist(coords: LatLng[]): number[] {
   const cd: number[] = [0];
@@ -668,16 +713,6 @@ function bearing(from: LatLng, to: LatLng): number {
   const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
-
-// function buildFallbackPath(from: LatLng, to: LatLng, steps = 40): LatLng[] {
-//   const path: LatLng[] = [];
-//   for (let i = 0; i <= steps; i++) {
-//     const t = i / steps;
-//     const arc = Math.sin(t * Math.PI) * 0.003;
-//     path.push([lerp(from[0], to[0], t) + arc, lerp(from[1], to[1], t)]);
-//   }
-//   return path;
-// }
 
 // ── styles ────────────────────────────────────────────────────────────────────
 
@@ -772,9 +807,7 @@ function makeBusIcon(opacity = 1) {
     html: `
       <div class="smt-bike-icon" style="opacity:${opacity};width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
         <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-          <!-- Outer glow ring -->
           <circle cx="20" cy="20" r="18" fill="rgba(74,222,128,0.15)" stroke="#4ade80" stroke-width="1.5"/>
-          <!-- Arrow body pointing UP (north = 0°) -->
           <polygon
             points="20,6 30,30 20,25 10,30"
             fill="#4ade80"
@@ -782,7 +815,6 @@ function makeBusIcon(opacity = 1) {
             stroke-width="1.5"
             stroke-linejoin="round"
           />
-          <!-- Center dot -->
           <circle cx="20" cy="20" r="2.5" fill="#0d0f14"/>
         </svg>
       </div>`,
@@ -811,12 +843,9 @@ export default function BusTracker() {
   const cumulDistRef = useRef<number[]>([]);
   const joinedRoomRef = useRef<string | null>(null);
 
-  // ── queue refs (NEW) ────────────────────────────────────────────────────
-  // Holds incoming location updates that are waiting to be animated.
+  // ── queue refs ──────────────────────────────────────────────────────────
   const updateQueueRef = useRef<LocationUpdate[]>([]);
-  // Timestamp (ms) of when the last animation slot began.
   const lastAnimStartRef = useRef<number>(0);
-  // The pending setTimeout handle for the next scheduled animation.
   const schedulerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── ui state ────────────────────────────────────────────────────────────
@@ -851,7 +880,6 @@ export default function BusTracker() {
       animFrameRef.current = null;
     }
 
-    // ── clear the queue and any pending scheduler (NEW) ──
     updateQueueRef.current = [];
     if (schedulerRef.current !== null) {
       clearTimeout(schedulerRef.current);
@@ -900,83 +928,103 @@ export default function BusTracker() {
     }
   }, []);
 
-  // ── animate segment ──────────────────────────────────────────────────────
-  const animateSegment = useCallback(
-  (from: LatLng, to: LatLng) => {
+  // ── jump marker to position instantly (no animation) ────────────────────
+  // Used when tab is hidden or when flushing a stale queue.
+  const jumpToPosition = useCallback((pos: LatLng) => {
+    currentPosRef.current = pos;
     const map = mapRef.current;
     if (!map) return;
 
-    stopAnimation();
-
-    // straight line between the two GPS pings — no OSRM, no routing
-    const routePoints: LatLng[] = [from, to];
-    routePointsRef.current = routePoints;
-    cumulDistRef.current = buildCumulativeDist(routePoints);
-
     if (!markerRef.current) {
-      markerRef.current = L.marker(from, { icon: makeBusIcon() }).addTo(map);
+      markerRef.current = L.marker(pos, { icon: makeBusIcon() }).addTo(map);
     } else {
-      markerRef.current.setLatLng(from);
+      markerRef.current.setLatLng(pos);
     }
+    setStatus("waiting");
+  }, []);
 
-    startTimeRef.current = null;
-    setStatus("riding");
+  // ── animate segment ──────────────────────────────────────────────────────
+  const animateSegment = useCallback(
+    (from: LatLng, to: LatLng) => {
+      const map = mapRef.current;
+      if (!map) return;
 
-    const animate = (ts: number): void => {
-      if (startTimeRef.current === null) startTimeRef.current = ts;
-      const raw = Math.min((ts - startTimeRef.current) / ANIM_DURATION, 1);
-      const t = easeInOut(raw);
-      const pos = getPositionAt(t, routePointsRef.current, cumulDistRef.current);
-
-      markerRef.current?.setLatLng(pos);
-      currentPosRef.current = pos;
-
-      if (raw < 1) {
-        const nextPos = getPositionAt(
-          easeInOut(Math.min(raw + 0.01, 1)),
-          routePointsRef.current,
-          cumulDistRef.current
-        );
-        const deg = bearing(pos, nextPos);
-        const iconEl = markerRef.current
-          ?.getElement()
-          ?.querySelector<HTMLDivElement>(".smt-bike-icon");
-        if (iconEl) iconEl.style.transform = `rotate(${deg}deg)`;
+      // Tab is hidden — skip rAF animation, just jump instantly.
+      // rAF is throttled/frozen in background tabs, which would jam the queue.
+      if (document.visibilityState === "hidden") {
+        jumpToPosition(to);
+        return;
       }
 
-      if (raw < 1) {
-        animFrameRef.current = requestAnimationFrame(animate);
+      stopAnimation();
+
+      const routePoints: LatLng[] = [from, to];
+      routePointsRef.current = routePoints;
+      cumulDistRef.current = buildCumulativeDist(routePoints);
+
+      if (!markerRef.current) {
+        markerRef.current = L.marker(from, { icon: makeBusIcon() }).addTo(map);
       } else {
-        const finalPos = to;
-        currentPosRef.current = finalPos;
-        markerRef.current?.setLatLng(finalPos);
-        setStatus("waiting");
-        animFrameRef.current = null;
+        markerRef.current.setLatLng(from);
       }
-    };
 
-    animFrameRef.current = requestAnimationFrame(animate);
-  },
-  [stopAnimation]
-);
+      startTimeRef.current = null;
+      setStatus("riding");
 
-  // ── keep always-fresh refs for callbacks used inside the socket effect ───
+      const animate = (ts: number): void => {
+        // If the tab became hidden mid-animation, abort and jump to end.
+        if (document.visibilityState === "hidden") {
+          jumpToPosition(to);
+          animFrameRef.current = null;
+          return;
+        }
+
+        if (startTimeRef.current === null) startTimeRef.current = ts;
+        const raw = Math.min((ts - startTimeRef.current) / ANIM_DURATION, 1);
+        const t = easeInOut(raw);
+        const pos = getPositionAt(t, routePointsRef.current, cumulDistRef.current);
+
+        markerRef.current?.setLatLng(pos);
+        currentPosRef.current = pos;
+
+        if (raw < 1) {
+          const nextPos = getPositionAt(
+            easeInOut(Math.min(raw + 0.01, 1)),
+            routePointsRef.current,
+            cumulDistRef.current
+          );
+          const deg = bearing(pos, nextPos);
+          const iconEl = markerRef.current
+            ?.getElement()
+            ?.querySelector<HTMLDivElement>(".smt-bike-icon");
+          if (iconEl) iconEl.style.transform = `rotate(${deg}deg)`;
+        }
+
+        if (raw < 1) {
+          animFrameRef.current = requestAnimationFrame(animate);
+        } else {
+          currentPosRef.current = to;
+          markerRef.current?.setLatLng(to);
+          setStatus("waiting");
+          animFrameRef.current = null;
+        }
+      };
+
+      animFrameRef.current = requestAnimationFrame(animate);
+    },
+    [stopAnimation, jumpToPosition]
+  );
+
+  // ── keep always-fresh refs ───────────────────────────────────────────────
   const joinRoomRef = useRef(joinRoom);
   const animateSegmentRef = useRef(animateSegment);
   useEffect(() => { joinRoomRef.current = joinRoom; }, [joinRoom]);
   useEffect(() => { animateSegmentRef.current = animateSegment; }, [animateSegment]);
 
-  // ── scheduleNext (NEW) ───────────────────────────────────────────────────
-  // Dequeues one update and animates it after the correct delay so that
-  // animations are always spaced >= SLOT_MS apart.
-  //
-  //  • Ping arrives at  8s → elapsed = 8s → delay = 2s → starts at 10s  ✅
-  //  • Ping arrives at 12s → elapsed = 12s → delay = 0  → starts now     ✅
-  //  • Multiple queued  → each one waits its own SLOT_MS from the previous ✅
+  // ── scheduleNext ─────────────────────────────────────────────────────────
   const scheduleNextRef = useRef<() => void>(() => {});
 
   const scheduleNext = useCallback(() => {
-    // Nothing waiting → nothing to do.
     if (updateQueueRef.current.length === 0) {
       schedulerRef.current = null;
       return;
@@ -984,8 +1032,11 @@ export default function BusTracker() {
 
     const now = Date.now();
     const elapsed = now - lastAnimStartRef.current;
-    // If we're behind schedule (elapsed > SLOT_MS) delay is 0 — start immediately.
-    const delay = Math.max(0, SLOT_MS - elapsed);
+
+    // When the tab is hidden, don't honour the SLOT_MS cadence — process
+    // immediately so the queue drains and the marker stays current.
+    const isHidden = document.visibilityState === "hidden";
+    const delay = isHidden ? 0 : Math.max(0, SLOT_MS - elapsed);
 
     schedulerRef.current = setTimeout(() => {
       schedulerRef.current = null;
@@ -997,7 +1048,7 @@ export default function BusTracker() {
       const newPos: LatLng = [next.lat, next.lon];
 
       if (currentPosRef.current === null) {
-        // Very first point — just place the marker, no animation yet.
+        // Very first point — place the marker without animating.
         currentPosRef.current = newPos;
         setStatus("waiting");
         const map = mapRef.current;
@@ -1009,30 +1060,55 @@ export default function BusTracker() {
         }
         addLog(`[${new Date().toLocaleTimeString()}] First point set. Waiting for next location…`);
       } else {
-        // Animate from current position to new position.
+        // animateSegment handles the hidden-tab check internally.
         animateSegmentRef.current(currentPosRef.current, newPos);
       }
 
-      // Schedule the next item in the queue (if any).
       scheduleNextRef.current();
     }, delay);
   }, [addLog]);
 
-  // Keep scheduleNextRef in sync so the setTimeout callback always calls
-  // the latest version (avoids stale closure capturing old addLog etc.).
   useEffect(() => { scheduleNextRef.current = scheduleNext; }, [scheduleNext]);
 
-  // ── enqueueUpdate (NEW) ──────────────────────────────────────────────────
-  // Called by the socket handler instead of animateSegment directly.
-  // Pushes the update onto the queue and kicks the scheduler if idle.
+  // ── enqueueUpdate ────────────────────────────────────────────────────────
   const enqueueUpdate = useCallback((data: LocationUpdate) => {
     updateQueueRef.current.push(data);
 
-    // Only start the scheduler if it isn't already running.
     if (schedulerRef.current === null) {
       scheduleNextRef.current();
     }
   }, []);
+
+  // ── visibility change handler ────────────────────────────────────────────
+  // When the user comes back to the tab:
+  //   1. Drop all queued items except the very latest (they're stale).
+  //   2. Kick the scheduler so the latest position is applied immediately.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        const queue = updateQueueRef.current;
+
+        if (queue.length > 1) {
+          // Keep only the most recent update; discard the rest.
+          const latest = queue[queue.length - 1];
+          updateQueueRef.current = [latest];
+          addLog(
+            `[${new Date().toLocaleTimeString()}] Tab refocused — dropped ${queue.length - 1} stale update(s), jumping to latest.`
+          );
+        }
+
+        // Re-kick the scheduler (it may have drained while hidden).
+        if (updateQueueRef.current.length > 0 && schedulerRef.current === null) {
+          // Force immediate dispatch — reset lastAnimStart so delay = 0.
+          lastAnimStartRef.current = 0;
+          scheduleNextRef.current();
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [addLog]);
 
   // ── init Leaflet ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1080,15 +1156,13 @@ export default function BusTracker() {
         `[${new Date().toLocaleTimeString()}] Trip ${data.tripId.slice(-6)} → lat:${data.lat.toFixed(4)} lon:${data.lon.toFixed(4)}${data.vel != null ? ` vel:${data.vel}km/h` : ""}`
       );
 
-      // ── hand off to the queue instead of animating directly ──
       enqueueUpdate(data);
     });
 
     socket.on("lastKnownLocation", (data: LocationUpdate) => {
       if (data.tripId !== joinedRoomRef.current) return;
 
-      // Last-known is shown immediately — it's a one-off snapshot, not a
-      // live update, so it bypasses the queue entirely.
+      // Bypasses the queue — it's a one-off snapshot, show it immediately.
       const pos: LatLng = [data.lat, data.lon];
       currentPosRef.current = pos;
       setLastUpdate(data);
@@ -1103,14 +1177,15 @@ export default function BusTracker() {
       }
 
       const age = Math.round((Date.now() - data.timestamp) / 1000 / 60);
-      addLog(`[${new Date().toLocaleTimeString()}] Last known location (${age}m ago) → lat:${data.lat.toFixed(4)} lon:${data.lon.toFixed(4)}`);
+      addLog(
+        `[${new Date().toLocaleTimeString()}] Last known location (${age}m ago) → lat:${data.lat.toFixed(4)} lon:${data.lon.toFixed(4)}`
+      );
     });
 
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
-    // intentionally once — callbacks accessed via always-fresh refs above
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1188,7 +1263,6 @@ export default function BusTracker() {
           </div>
           <div className="smt-chip active">tracking room</div>
           <div className="smt-chip">10s segments</div>
-          <div className="smt-chip">OSRM road routing</div>
         </div>
 
         {/* Event log */}

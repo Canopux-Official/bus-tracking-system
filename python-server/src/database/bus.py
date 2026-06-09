@@ -1,4 +1,3 @@
-# src/database/models.py
 from src import db
 from sqlalchemy.dialects.postgresql import JSON
 from datetime import datetime
@@ -6,11 +5,15 @@ from datetime import datetime
 class Bus(db.Model):
     __tablename__ = "bus"
     
-    tripId = db.Column(db.String, primary_key=True)
-    bus_number = db.Column(db.String, unique=True, nullable=False)
-    source = db.Column(db.String, nullable=False)
+    tripId      = db.Column(db.String, primary_key=True)
+    bus_number  = db.Column(db.String, nullable=False)           # removed unique=True
+    source      = db.Column(db.String, nullable=False)
     destination = db.Column(db.String, nullable=False)
-    route = db.Column(JSON, nullable=False)
-    current = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    route       = db.Column(JSON, nullable=False)
+    current     = db.Column(db.Boolean, default=False, nullable=False)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False) 
+    
+    # ✅ Added to match Node schema
+    status      = db.Column(db.String, default="active", nullable=False)  # "active" | "completed"
+    ended_at    = db.Column(db.DateTime, nullable=True)
