@@ -1,6 +1,7 @@
 import { useState } from "react";
 import '../styles/User.css';
 import { searchBuses } from "../apis/trip.api";
+import StopsModal from "../components/Stopmodal";
 
 type Bus = {
   tripId: string;
@@ -15,6 +16,9 @@ export default function User() {
   const [filteredBuses, setFilteredBuses] = useState<Bus[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+
+  // ── Modal state ──────────────────────────────────────────────────────────
+  const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
 
   // Search buses
   const handleSearch = async () => {
@@ -37,8 +41,6 @@ export default function User() {
 
       const data = await searchBuses(source, destination);
       setFilteredBuses(data);
-
-      setFilteredBuses(data);
       setSearched(true);
 
     } catch (err) {
@@ -54,17 +56,31 @@ export default function User() {
     setDestination(source);
   };
 
-  // Handle bus click
+  // ── Open stops modal instead of navigating directly ──────────────────────
   const handleBusClick = (bus: Bus) => {
-    if (bus.status === "active") {
-      window.location.href = `/tracker/${bus.tripId}`;
-    } else {
-      alert("This bus is not live right now");
+    setSelectedBus(bus);
+  };
+
+  // ── Navigate to map — called from inside the modal ───────────────────────
+  const handleTrack = () => {
+    if (selectedBus) {
+      window.location.href = `/tracker/${selectedBus.tripId}`;
     }
   };
 
   return (
     <div className="app">
+
+      {/* ── Stops Modal ─────────────────────────────────────────────────── */}
+      {selectedBus && (
+        <StopsModal
+          bus={selectedBus}
+          userSource={source}
+          userDestination={destination}
+          onClose={() => setSelectedBus(null)}
+          onTrack={handleTrack}
+        />
+      )}
 
       {/* NAV */}
       <div className="nav">
@@ -184,7 +200,6 @@ export default function User() {
                 const srcIdx = route.findIndex(s => s.toLowerCase() === src);
                 const dstIdx = route.findIndex(s => s.toLowerCase() === dst);
 
-                // ✅ Safety check
                 if (srcIdx === -1 || dstIdx === -1) return null;
 
                 const viaStops = route.slice(srcIdx + 1, dstIdx);
