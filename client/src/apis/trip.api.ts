@@ -97,3 +97,17 @@ export const searchBuses = async (source: string, destination: string) => {
     }
   );
 };
+
+
+
+// 5. Get Stops API
+export const getStops = async (tripId: string) => {
+    console.log("Get Stops API called with:", tripId);
+    const PYTHON_BACKEND_URL = import.meta.env.VITE_PYTHON_BACKEND_URL as string;
+    
+    const res = await fetch(`${PYTHON_BACKEND_URL}/api/trips/${tripId}/stops`);
+    const data = await res.json();
+    
+    if (!res.ok) throw new Error(data?.error || "Failed to fetch stops");
+    return data;
+};

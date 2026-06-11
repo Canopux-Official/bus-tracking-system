@@ -1,11 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "../styles/Stopsmodal.css";
+import { getStops } from "../apis/trip.api";
 
 type Bus = {
   tripId: string;
   bus_number: string;
   route: string[];
   status: string;
+};
+
+type PinnedStop = {
+  id: string;
+  lat: number;
+  lng: number;
+  name: string;
+  pinned_at: string;
 };
 
 type Props = {
@@ -23,6 +32,26 @@ export default function StopsModal({ bus, userSource, userDestination, onClose, 
 
   const boardingIdx = route.findIndex((s) => s.toLowerCase() === srcNorm);
   const dropIdx = route.findIndex((s) => s.toLowerCase() === dstNorm);
+
+  // ── Pinned stops state ───────────────────────────────────────────────────
+  const [pinnedStops, setPinnedStops] = useState<PinnedStop[]>([]);
+  const [stopsLoading, setStopsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStops = async () => {
+      try {
+        setStopsLoading(true);
+        const data = await getStops(bus.tripId);
+        setPinnedStops(data.stops || []);
+      } catch (err) {
+        console.error("Failed to fetch stops:", err);
+        setPinnedStops([]);
+      } finally {
+        setStopsLoading(false);
+      }
+    };
+    fetchStops();
+  }, [bus.tripId]);
 
   // Close on Escape key
   useEffect(() => {
@@ -77,13 +106,10 @@ export default function StopsModal({ bus, userSource, userDestination, onClose, 
 
               return (
                 <div key={idx} className={`sm-stop sm-stop--${type}`}>
-                  {/* Track line + dot */}
                   <div className="sm-track">
                     <div className={`sm-dot sm-dot--${type}`} />
                     {!isLast && <div className={`sm-line ${type === "between" || type === "boarding" ? "sm-line--active" : ""}`} />}
                   </div>
-
-                  {/* Content */}
                   <div className="sm-stop-content">
                     <div className="sm-stop-name">
                       {stop.charAt(0).toUpperCase() + stop.slice(1)}
@@ -96,6 +122,47 @@ export default function StopsModal({ bus, userSource, userDestination, onClose, 
               );
             })}
           </div>
+
+          {/* ── Pinned Stops Section ──────────────────────────────────────── */}
+          <div style={{ marginTop: 20, borderTop: "1px solid var(--border, #1e2530)", paddingTop: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 12, letterSpacing: "0.05em" }}>
+              📍 DRIVER PINNED STOPS
+            </div>
+
+            {stopsLoading ? (
+              <div style={{ color: "#475569", fontSize: 13 }}>Loading stops...</div>
+            ) : pinnedStops.length === 0 ? (
+              <div style={{ color: "#475569", fontSize: 13 }}>No stops pinned for this route yet.</div>
+            ) : (
+              pinnedStops.map((stop, idx) => (
+                <div key={stop.id} style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                  marginBottom: 12,
+                }}>
+                  <div style={{
+                    width: 24, height: 24, borderRadius: "50%",
+                    background: "#1e3a5f", color: "#38bdf8",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 11, fontWeight: 700, flexShrink: 0,
+                  }}>
+                    {idx + 1}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 500 }}>
+                      {stop.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
+                      {stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          {/* ─────────────────────────────────────────────────────────────── */}
+
         </div>
 
         {/* Footer CTA */}

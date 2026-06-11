@@ -23,3 +23,41 @@ def pin_stop_route(trip_id: str):
     db.session.commit()
 
     return jsonify({"id": stop.id, "lat": stop.lat, "lng": stop.lng}), 201
+
+
+
+
+
+@stops_bp.route("/api/trips/<trip_id>/stops", methods=["GET"])
+def get_stops(trip_id: str):
+    trip = Bus.query.filter_by(tripId=trip_id).first()
+    if not trip:
+        return jsonify({"error": "Trip not found"}), 404
+
+    # Look up by bus_number + source + destination, NOT tripId
+    route = RouteStop.query.filter_by(
+        bus_id=trip.bus_number,
+        source=trip.source,
+        destination=trip.destination
+    ).first()
+
+    if not route:
+        return jsonify({"stops": []}), 200
+
+    stops = [
+        {
+            "id": s.id,
+            "lat": s.lat,
+            "lng": s.lng,
+            "name": s.name,
+            "pinned_at": s.pinned_at.isoformat(),
+        }
+        for s in route.observations
+    ]
+
+    return jsonify({
+        "bus_number": trip.bus_number,
+        "source": trip.source,
+        "destination": trip.destination,
+        "stops": stops
+    }), 200
