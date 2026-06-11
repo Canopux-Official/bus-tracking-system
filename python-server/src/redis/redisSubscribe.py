@@ -304,7 +304,7 @@ def subscribe_to_redis():
             "tripId":      trip_id,
             "lat":         lat,
             "lon":         lon,
-            "velocity":    raw_data.get("velocity", 0),
+            "velocity":    raw_data.get("vel", 0),
             "timestamp":   ts,
             "map_matched": map_matched,
         }

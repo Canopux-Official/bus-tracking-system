@@ -438,7 +438,11 @@ export default function Driver() {
         body: JSON.stringify({ lat, lng }),
       });
 
-      if (!res.ok) throw new Error("Pin stop request failed");
+      // ✅ Log the actual error response from Python
+      const data = await res.json();
+      console.log("[pinStop] response:", data);
+
+      if (!res.ok) throw new Error(data?.error || data?.message || "Pin stop request failed");
 
       console.log(`[pinStop] stop pinned at (${lat}, ${lng})`);
       setPinFeedback("success");
@@ -664,10 +668,10 @@ export default function Driver() {
                 {pinning
                   ? "📍 Pinning..."
                   : pinFeedback === "success"
-                  ? "✅ Stop Pinned"
-                  : pinFeedback === "error"
-                  ? "❌ Pin Failed — Retry"
-                  : "📍 PIN STOP"}
+                    ? "✅ Stop Pinned"
+                    : pinFeedback === "error"
+                      ? "❌ Pin Failed — Retry"
+                      : "📍 PIN STOP"}
               </button>
 
               {/* Error */}

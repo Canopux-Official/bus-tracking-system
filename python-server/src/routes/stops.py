@@ -1,63 +1,44 @@
 from flask import Blueprint, request, jsonify
-from src import db
-from src.database.bus import Bus
-from src.crud.stops import get_or_create_route, pin_stop
+from src.crud.stops import get_place_name
+import requests
+import os
 
 stops_bp = Blueprint("stops", __name__)
+
+NODE_URL = os.getenv("NODE_URL", "http://localhost:4000")
+
 
 @stops_bp.route("/api/trips/<trip_id>/pin-stop", methods=["POST"])
 def pin_stop_route(trip_id: str):
     data = request.get_json()
     lat  = data.get("lat")
     lng  = data.get("lng")
+    
+    print(f"[pin_stop] received: tripId={trip_id}, lat={lat}, lng={lng}")
 
     if lat is None or lng is None:
         return jsonify({"error": "lat and lng are required"}), 400
 
-    trip = Bus.query.filter_by(tripId=trip_id).first()
-    if not trip:
-        return jsonify({"error": "Trip not found"}), 404
+    stop_name = get_place_name(lat, lng)
+    print(f"[pin_stop] resolved: {stop_name}")
 
-    route = get_or_create_route(trip.bus_number, trip.source, trip.destination)
-    stop  = pin_stop(route, lat, lng)
-    db.session.commit()
-
-    return jsonify({"id": stop.id, "lat": stop.lat, "lng": stop.lng}), 201
-
-
-
-
-
-@stops_bp.route("/api/trips/<trip_id>/stops", methods=["GET"])
-def get_stops(trip_id: str):
-    trip = Bus.query.filter_by(tripId=trip_id).first()
-    if not trip:
-        return jsonify({"error": "Trip not found"}), 404
-
-    # Look up by bus_number + source + destination, NOT tripId
-    route = RouteStop.query.filter_by(
-        bus_id=trip.bus_number,
-        source=trip.source,
-        destination=trip.destination
-    ).first()
-
-    if not route:
-        return jsonify({"stops": []}), 200
-
-    stops = [
-        {
-            "id": s.id,
-            "lat": s.lat,
-            "lng": s.lng,
-            "name": s.name,
-            "pinned_at": s.pinned_at.isoformat(),
-        }
-        for s in route.observations
-    ]
+    try:
+        node_res = requests.patch(
+            f"{NODE_URL}/bus/trip/{trip_id}/route",
+            json={"stop_name": stop_name},
+            timeout=5
+        )
+        print(f"[pin_stop] Node status: {node_res.status_code}")
+        print(f"[pin_stop] Node response: {node_res.text}")
+        node_data = node_res.json()
+    except Exception as e:
+        print(f"[pin_stop] Node call failed: {e}")
+        return jsonify({"error": "Failed to update route on Node"}), 502
 
     return jsonify({
-        "bus_number": trip.bus_number,
-        "source": trip.source,
-        "destination": trip.destination,
-        "stops": stops
+        "stop_name": stop_name,
+        "skipped":   node_data.get("skipped", False),
+        "route":     node_data.get("route", []),
+        "lat":       lat,
+        "lng":       lng,
     }), 200

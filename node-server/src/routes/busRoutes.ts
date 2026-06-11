@@ -1,12 +1,14 @@
-import { createBus, endTrip } from '../controllers/busController';
+import { createBus, endTrip, getStops, updateRoute } from '../controllers/busController';
 import express from 'express';
 
 const router = express.Router();
 
 // call when bus driver will enter the bus details
 
+router.post('/create',                    createBus);
+router.patch('/end-trip/:tripId',         endTrip);
+router.patch('/trip/:tripId/route',       updateRoute);
+router.get('/trip/:tripId/stops',         getStops);
 
-router.post('/create',createBus);
-router.patch("/end-trip/:tripId", endTrip);
 
 export default router;

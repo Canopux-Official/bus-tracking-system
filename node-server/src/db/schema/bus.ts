@@ -2,21 +2,19 @@ import { createId } from "@paralleldrive/cuid2";
 import { boolean, json, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
 export const bus = pgTable('bus', {
-  tripId: text('tripId').primaryKey().$defaultFn(() => createId()),
-  bus_number: text('bus_number').notNull(),
-  source: text('source').notNull(),
+
+  tripId:      text('tripId').primaryKey().$defaultFn(() => createId()),
+  
+  bus_number:  text('bus_number').notNull(),
+  source:      text('source').notNull(),
   destination: text('destination').notNull(),
-  route: json("route").$type<string[]>().notNull(),
-  current: boolean("current").notNull().default(false),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
-
-  status: text("status").default("active").notNull(), // active | completed
-  endedAt: timestamp("ended_at"),
+  
+  route:       json("route").$type<string[]>().notNull(),
+  
+  status:      text("status").default("active").notNull(),
+  current:     boolean("current").notNull().default(false),
+  
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+  updatedAt:   timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+  endedAt:     timestamp("ended_at"),
 })
-
-
-// source: text("source").notNull()
-// |            |
-// |            |  > it is the column name in the database
-// > it is typescript so we can use like bus.source
