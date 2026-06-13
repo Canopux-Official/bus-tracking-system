@@ -731,27 +731,27 @@ function bearing(from: LatLng, to: LatLng): number {
 
 // ── stop icon helpers ─────────────────────────────────────────────────────────
 
-function makeStopIcon(index: number, isFirst: boolean, isLast: boolean) {
-  const color = isFirst ? "#4ade80" : isLast ? "#f87171" : "#facc15";
-  const label = isFirst ? "S" : isLast ? "E" : `${index}`;
-  return L.divIcon({
-    className: "",
-    html: `
-      <div style="
-        width: 24px; height: 24px;
-        background: #0d0f14;
-        border: 2px solid ${color};
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-family: 'DM Mono', monospace;
-        font-size: 9px; font-weight: 600;
-        color: ${color};
-        box-shadow: 0 0 8px ${color}55;
-      ">${label}</div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-  });
-}
+// function makeStopIcon(index: number, isFirst: boolean, isLast: boolean) {
+//   const color = isFirst ? "#4ade80" : isLast ? "#f87171" : "#facc15";
+//   const label = isFirst ? "S" : isLast ? "E" : `${index}`;
+//   return L.divIcon({
+//     className: "",
+//     html: `
+//       <div style="
+//         width: 24px; height: 24px;
+//         background: #0d0f14;
+//         border: 2px solid ${color};
+//         border-radius: 50%;
+//         display: flex; align-items: center; justify-content: center;
+//         font-family: 'DM Mono', monospace;
+//         font-size: 9px; font-weight: 600;
+//         color: ${color};
+//         box-shadow: 0 0 8px ${color}55;
+//       ">${label}</div>`,
+//     iconSize: [24, 24],
+//     iconAnchor: [12, 12],
+//   });
+// }
 
 // ── styles ────────────────────────────────────────────────────────────────────
 
