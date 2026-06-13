@@ -4,24 +4,6 @@ const apiRequest = async (endpoint: string, options: RequestInit) => {
     const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string;
     const url = `${BACKEND_URL}${endpoint}`;
 
-    // Safe Body Parsing.
-    let parsedBody = null;
-    try {
-      parsedBody =
-        typeof options.body === "string"
-          ? JSON.parse(options.body)
-          : options.body || null;
-    } catch {
-      parsedBody = options.body;
-    }
-
-    // Log Request.
-    console.log("API REQUEST:");
-    console.log("TIME:", new Date().toISOString());
-    console.log("URL:", url);
-    console.log("METHOD:", options.method);
-    console.log("BODY:", parsedBody);
-
     // Send Request.
     const res = await fetch(url, {
       ...options,
@@ -38,14 +20,11 @@ const apiRequest = async (endpoint: string, options: RequestInit) => {
     } catch {
       data = null;
     }
-
-    // Log Response.
-    console.log("API RESPONSE:", data);
-
     if (!res.ok) {
       throw new Error(data?.message || "API request failed");
     }
     return data;
+
   } catch (err: any) {
     console.error("API ERROR:", err.message || err);
     throw err;
@@ -53,24 +32,43 @@ const apiRequest = async (endpoint: string, options: RequestInit) => {
 };
 
 
+
 // 1. Start Trip API.
-export const startTrip = async (data: { busNo: string; source: string; destination: string, lat: number, lng: number }) => {
+export const startTrip = async (
+  data: { 
+    busNo:       string,
+    source:      string, 
+    destination: string, 
+    lat:         number, 
+    lng:         number,
+  }) => {
+
   console.log("Start Trip API called with:", data);
   return apiRequest("/bus/create", {
     method: "POST",
     body: JSON.stringify({
-      bus_number: data.busNo, 
-      source: data.source,
+      bus_number:  data.busNo, 
+      source:      data.source,
       destination: data.destination,
-      lat: data.lat,    // ✅ added
-      lng: data.lng,    // ✅ added
+      lat:         data.lat,    
+      lng:         data.lng,    
     }),
   });
 };
 
 
+
 // 2. Send Location API.
-export const sendLocation = async (data: { tripId: string; lat: number; lon: number; vel: number; acc: number ,status: String}) => {
+export const sendLocation = async (
+  data: { 
+    tripId: string, 
+    lat:    number, 
+    lon:    number, 
+    vel:    number, 
+    acc:    number,
+    status: string,
+  }) => {
+
   console.log("Send Live Location API called with:", data);
   return apiRequest("/api/redis/location", {
     method: "POST",
@@ -79,8 +77,14 @@ export const sendLocation = async (data: { tripId: string; lat: number; lon: num
 };
 
 
+
 // 3. End Trip API.
-export const endTrip = async (tripId: string, lat: number, lng: number) => {
+export const endTrip = async (
+  tripId: string, 
+  lat:    number, 
+  lng:    number,
+) => {
+
   console.log("End Trip API called with:", tripId);
   return apiRequest(`/bus/end-trip/${tripId}`, {
     method: "PATCH",
@@ -89,13 +93,15 @@ export const endTrip = async (tripId: string, lat: number, lng: number) => {
 };
 
 
-// 4. Search Buses API.
-export const searchBuses = async (source: string, destination: string) => {
-  console.log("Search Buses API called with:", { source, destination });
 
-  return apiRequest(
-    `/api/bus/search?source=${encodeURIComponent(source)}&destination=${encodeURIComponent(destination)}`,
-    {
+// 4. Search Buses API.
+export const searchBuses = async (
+  source:      string, 
+  destination: string,
+) => {
+
+  console.log("Search Buses API called with:", { source, destination });
+  return apiRequest(`/api/bus/search?source=${encodeURIComponent(source)}&destination=${encodeURIComponent(destination)}`, {
       method: "GET",
     }
   );
