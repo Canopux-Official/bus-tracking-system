@@ -115,7 +115,9 @@ export async function updateRoute(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        if (existing.status === "completed") {
+        const isInternal = req.headers['x-internal'] === 'true';
+
+        if (existing.status === "completed" && !isInternal) {
             res.status(400).json({ success: false, message: "Cannot update route of a completed trip." });
             return;
         }

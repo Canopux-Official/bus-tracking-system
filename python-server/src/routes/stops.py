@@ -1,50 +1,40 @@
+# routes/stops.py (or wherever stops_bp is defined)
 from flask import Blueprint, request, jsonify
-from src.crud.stops import get_place_name
-import requests
+from src.crud.stops import buffer_stop, flush_stops_to_node
 import os
 
 stops_bp = Blueprint("stops", __name__)
-
-NODE_URL = os.getenv("NODE_URL", "http://localhost:4000")
 
 
 @stops_bp.route("/api/trips/<trip_id>/pin-stop", methods=["POST"])
 def pin_stop_route(trip_id: str):
     data = request.get_json()
-    lat  = data.get("lat")
-    lng  = data.get("lng")
-    
+    lat = data.get("lat")
+    lng = data.get("lng")
+
     print(f"[pin_stop] received: tripId={trip_id}, lat={lat}, lng={lng}")
 
     if lat is None or lng is None:
         return jsonify({"error": "lat and lng are required"}), 400
 
-    # Resolve place name via LocationIQ before forwarding to Node
-    stop_name = get_place_name(lat, lng)
-
-    print(f"[pin_stop] stop_name resolved: {stop_name}")  # ✅ add this
-    print(f"[pin_stop] NODE_URL is: {NODE_URL}")           # ✅ add this
-    print(f"[pin_stop] sending: lat={lat}, lng={lng}, stop_name={stop_name}")  # ✅ add this
-
-    print(f"[pin_stop] resolved place name: {stop_name}")
-
-    try:
-        node_res = requests.patch(
-            f"{NODE_URL}/bus/trip/{trip_id}/route",
-            json={"lat": lat, "lng": lng, "stop_name": stop_name},  # ✅ all three fields
-            timeout=5
-        )
-        print(f"[pin_stop] Node status: {node_res.status_code}")
-        print(f"[pin_stop] Node response: {node_res.text}")
-        node_data = node_res.json()
-    except Exception as e:
-        print(f"[pin_stop] Node call failed: {e}")
-        return jsonify({"error": "Failed to update route on Node"}), 502
+    # Resolve name + buffer in Redis — no DB write yet
+    stop_name = buffer_stop(trip_id, lat, lng)
 
     return jsonify({
-        "skipped":    node_data.get("skipped", False),
-        "route":      node_data.get("route", []),
-        "lat":        lat,
-        "lng":        lng,
-        "stop_name":  stop_name,
+        "buffered": True,
+        "lat": lat,
+        "lng": lng,
+        "stop_name": stop_name,
+        "message": "Stop buffered. Will be written to DB when trip ends."
     }), 200
+
+
+@stops_bp.route("/internal/process-stops/<trip_id>", methods=["POST"])
+def process_stops(trip_id: str):
+    """Called by Node after endTrip — flushes buffered stops to DB via Node's updateRoute."""
+    print(f"[process_stops] triggered for trip {trip_id}")
+    success = flush_stops_to_node(trip_id)
+    if success:
+        return jsonify({"success": True, "message": "Stops flushed to DB."}), 200
+    else:
+        return jsonify({"success": False, "message": "Some stops failed to flush."}), 500
