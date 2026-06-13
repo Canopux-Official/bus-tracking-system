@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { db } from "../db/dbconnection";
-import { bus } from "../db/schema/bus";
+import { bus, Stop } from "../db/schema/bus";
 import { eq, and } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 
@@ -38,9 +38,9 @@ export async function createBus(req: Request, res: Response): Promise<void> {
             const [reactivated] = await db
                 .update(bus)
                 .set({
-                    tripId:    newTripId,
-                    status:    "active",
-                    endedAt:   null,
+                    tripId: newTripId,
+                    status: "active",
+                    endedAt: null,
                     updatedAt: new Date(),
                     // route is intentionally NOT reset — old route is preserved
                 })
@@ -56,8 +56,8 @@ export async function createBus(req: Request, res: Response): Promise<void> {
             res.status(200).json({
                 success: true,
                 message: "Existing bus reactivated with previous route.",
-                tripId:  reactivated.tripId,
-                data:    reactivated,
+                tripId: reactivated.tripId,
+                data: reactivated,
             });
             return;
         }
@@ -67,17 +67,17 @@ export async function createBus(req: Request, res: Response): Promise<void> {
             .insert(bus)
             .values({
                 bus_number,
-                source:      s,
+                source: s,
                 destination: d,
-                route:       [s, d],
+                route: [],
             })
             .returning();
 
         res.status(201).json({
             success: true,
             message: "Bus created successfully.",
-            tripId:  newBus.tripId,
-            data:    newBus,
+            tripId: newBus.tripId,
+            data: newBus,
         });
 
     } catch (err: unknown) {
@@ -89,13 +89,14 @@ export async function createBus(req: Request, res: Response): Promise<void> {
 
 // ── 2) Update Route ───────────────────────────────────────────────────────────
 // Called when driver pins a new stop during the trip
+// ── 2) Update Route ───────────────────────────────────────────────────────────
 export async function updateRoute(req: Request, res: Response): Promise<void> {
     try {
         const { tripId } = req.params;
-        const { stop_name } = req.body;
+        const { lat, lng } = req.body; // ✅ was: { stop_name }
 
-        if (!stop_name) {
-            res.status(400).json({ success: false, message: "stop_name is required." });
+        if (lat === undefined || lng === undefined) {
+            res.status(400).json({ success: false, message: "lat and lng are required." });
             return;
         }
 
@@ -114,23 +115,26 @@ export async function updateRoute(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const currentRoute = Array.isArray(existing.route) ? existing.route as string[] : [];
-        const stopNorm     = stop_name.trim().toLowerCase();
+        const newStop = { lat, lng };
+        const currentRoute = Array.isArray(existing.route) ? existing.route as { lat: number; lng: number }[] : [];
 
-        // Skip if stop already exists in route
-        if (currentRoute.includes(stopNorm)) {
+        // Skip if last stop is the same coordinate (duplicate consecutive pin)
+        const last = currentRoute[currentRoute.length - 1];
+        const skipped = last && last.lat === lat && last.lng === lng;
+
+        if (skipped) {
             res.status(200).json({
                 success: true,
                 skipped: true,
-                message: "Stop already in route.",
-                route:   currentRoute,
+                message: "Duplicate stop skipped.",
+                route: currentRoute,
             });
             return;
         }
 
-        // Insert new stop before the final destination
+        // ✅ Insert before final destination (last element)
         const destination = currentRoute[currentRoute.length - 1];
-        const newRoute    = [...currentRoute.slice(0, -1), stopNorm, destination];
+        const newRoute = [...currentRoute.slice(0, -1), newStop, destination];
 
         const [updated] = await db
             .update(bus)
@@ -142,7 +146,7 @@ export async function updateRoute(req: Request, res: Response): Promise<void> {
             success: true,
             skipped: false,
             message: "Stop added to route.",
-            route:   updated.route,
+            route: updated.route,
         });
 
     } catch (err) {
@@ -186,7 +190,7 @@ export async function endTrip(req: Request, res: Response): Promise<void> {
         res.status(200).json({
             success: true,
             message: "Trip ended successfully.",
-            data:    updatedBus,
+            data: updatedBus,
         });
 
     } catch (err) {
@@ -212,14 +216,14 @@ export async function getStops(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const route = Array.isArray(existing.route) ? existing.route as string[] : [];
+        const route = Array.isArray(existing.route) ? existing.route as Stop[] : []; // ✅ was: as string[]
 
         res.status(200).json({
-            success:     true,
-            bus_number:  existing.bus_number,
-            source:      existing.source,
+            success: true,
+            bus_number: existing.bus_number,
+            source: existing.source,
             destination: existing.destination,
-            stops:       route.map((name, idx) => ({ idx, name })),
+            stops: route.map((name, idx) => ({ idx, name })),
         });
 
     } catch (err) {

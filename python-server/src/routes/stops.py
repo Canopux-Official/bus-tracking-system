@@ -19,13 +19,12 @@ def pin_stop_route(trip_id: str):
     if lat is None or lng is None:
         return jsonify({"error": "lat and lng are required"}), 400
 
-    stop_name = get_place_name(lat, lng)
-    print(f"[pin_stop] resolved: {stop_name}")
+    # Removed: stop_name = get_place_name(lat, lng)
 
     try:
         node_res = requests.patch(
             f"{NODE_URL}/bus/trip/{trip_id}/route",
-            json={"stop_name": stop_name},
+            json={"lat": lat, "lng": lng},  # send coordinates instead of stop_name
             timeout=5
         )
         print(f"[pin_stop] Node status: {node_res.status_code}")
@@ -36,9 +35,8 @@ def pin_stop_route(trip_id: str):
         return jsonify({"error": "Failed to update route on Node"}), 502
 
     return jsonify({
-        "stop_name": stop_name,
-        "skipped":   node_data.get("skipped", False),
-        "route":     node_data.get("route", []),
-        "lat":       lat,
-        "lng":       lng,
+        "skipped": node_data.get("skipped", False),
+        "route":   node_data.get("route", []),
+        "lat":     lat,
+        "lng":     lng,
     }), 200

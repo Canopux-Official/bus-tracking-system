@@ -10,7 +10,7 @@ class Bus(db.Model):
     bus_number  = db.Column(db.String, nullable=False)
     source      = db.Column(db.String, nullable=False)
     destination = db.Column(db.String, nullable=False)
-    route       = db.Column(JSON, nullable=False)
+    route       = db.Column(JSON, nullable=False, default=list)  # stores [{"lat": ..., "lng": ...}, ...]
     current     = db.Column(db.Boolean, default=False, nullable=False)
     status      = db.Column(db.String, default="active", nullable=False)
     ended_at    = db.Column(db.DateTime, nullable=True)

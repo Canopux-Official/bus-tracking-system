@@ -17,26 +17,23 @@ export const searchBuses = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Source and Destination cannot be same." });
     }
 
-    // Fetch only required Fields
     const buses = await db.select({
       tripId: bus.tripId,
       bus_number: bus.bus_number,
+      source: bus.source,
+      destination: bus.destination,
       route: bus.route,
       status: bus.status,
     }).from(bus);
 
     const filtered = buses.filter((b) => {
-      const route = Array.isArray(b.route)
-        ? b.route.map((r: string) => r.toLowerCase())
-        : [];
-
-      const sIndex = route.indexOf(s);
-      const dIndex = route.indexOf(d);
-
-      return sIndex !== -1 && dIndex !== -1 && sIndex < dIndex;
+      return (
+        b.source.toLowerCase() === s &&
+        b.destination.toLowerCase() === d
+      );
     });
 
-    // Filter Active Bus First.
+    // Sort active buses first
     filtered.sort((a, b) =>
       (b.status === "active" ? 1 : 0) - (a.status === "active" ? 1 : 0)
     );
