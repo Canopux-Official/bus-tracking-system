@@ -1,6 +1,7 @@
 import requests
 import os
 
+
 def get_place_name(lat: float, lng: float) -> str:
     api_key = os.getenv("LOCATIONIQ_TOKEN")
     url = f"https://us1.locationiq.com/v1/reverse?key={api_key}&lat={lat}&lon={lng}&format=json"
@@ -10,11 +11,18 @@ def get_place_name(lat: float, lng: float) -> str:
         return (
             addr.get("amenity") or
             addr.get("road") or
+            addr.get("neighbourhood") or
             addr.get("suburb") or
+            addr.get("village") or
+            addr.get("town") or
             addr.get("city") or
+            addr.get("county") or          # ✅ added
+            addr.get("state_district") or  # ✅ added
+            addr.get("state") or           # ✅ added
             "Unknown"
         )
-    except Exception:
+    except Exception as e:
+        print(f"[locationiq] exception: {e}")
         return "Unknown"
 
 
@@ -25,7 +33,7 @@ def pin_stop(trip_id: str, lat: float, lng: float) -> bool:
     try:
         res = requests.patch(
             f"{NODE_URL}/bus/trip/{trip_id}/route",
-            json={"stop_name": name},
+            json={"lat": lat, "lng": lng, "stop_name": name},  # ✅ all three fields
             timeout=5
         )
         data = res.json()

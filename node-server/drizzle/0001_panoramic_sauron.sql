@@ -1,0 +1,1 @@
+ALTER TABLE "bus" ALTER COLUMN "route" SET DEFAULT '[]'::json;

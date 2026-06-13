@@ -89,11 +89,11 @@ export async function createBus(req: Request, res: Response): Promise<void> {
 
 // ── 2) Update Route ───────────────────────────────────────────────────────────
 // Called when driver pins a new stop during the trip
-// ── 2) Update Route ───────────────────────────────────────────────────────────
 export async function updateRoute(req: Request, res: Response): Promise<void> {
+    console.log("[updateRoute] body received:", req.body); 
     try {
         const { tripId } = req.params;
-        const { lat, lng } = req.body; // ✅ was: { stop_name }
+        const { lat, lng, stop_name } = req.body; // ✅ added stop_name
 
         if (lat === undefined || lng === undefined) {
             res.status(400).json({ success: false, message: "lat and lng are required." });
@@ -115,8 +115,8 @@ export async function updateRoute(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const newStop = { lat, lng };
-        const currentRoute = Array.isArray(existing.route) ? existing.route as { lat: number; lng: number }[] : [];
+        const newStop = { lat, lng, stop_name: stop_name || "Unknown" }; // ✅ added stop_name
+        const currentRoute = Array.isArray(existing.route) ? existing.route as Stop[] : [];
 
         // Skip if last stop is the same coordinate (duplicate consecutive pin)
         const last = currentRoute[currentRoute.length - 1];
@@ -132,7 +132,6 @@ export async function updateRoute(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        // ✅ Insert before final destination (last element)
         const destination = currentRoute[currentRoute.length - 1];
         const newRoute = [...currentRoute.slice(0, -1), newStop, destination];
 

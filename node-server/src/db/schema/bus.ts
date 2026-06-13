@@ -1,7 +1,7 @@
 import { createId } from "@paralleldrive/cuid2";
 import { boolean, json, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-export type Stop = { lat: number; lng: number };
+export type Stop = { lat: number; lng: number; stop_name: string };
 
 export const bus = pgTable('bus', {
 

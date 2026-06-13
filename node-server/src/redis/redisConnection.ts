@@ -11,6 +11,9 @@ export const redisClient: RedisClientType = createClient({
     }
 });
 
+console.log('REDIS_HOST:', process.env.REDIS_HOST);
+console.log('REDIS_PORT:', process.env.REDIS_PORT);
+
 // Listen for errors
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
 
