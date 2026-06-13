@@ -7,12 +7,12 @@ import { createId } from "@paralleldrive/cuid2";
 // ── 1) Create Bus ─────────────────────────────────────────────────────────────
 export async function createBus(req: Request, res: Response): Promise<void> {
     try {
-        const { bus_number, source, destination } = req.body;
+        const { bus_number, source, destination, lat, lng } = req.body; // ✅ added lat, lng
 
-        if (!bus_number || !source || !destination) {
+        if (!bus_number || !source || !destination || lat === undefined || lng === undefined) {
             res.status(400).json({
                 success: false,
-                message: "bus_number, source, and destination are required.",
+                message: "bus_number, source, destination, lat, and lng are required.",
             });
             return;
         }
@@ -33,7 +33,7 @@ export async function createBus(req: Request, res: Response): Promise<void> {
             );
 
         if (existing) {
-            // Reactivate with new tripId, carry over old route
+            // Reactivate with new tripId, reset route with new start coordinates
             const newTripId = createId();
             const [reactivated] = await db
                 .update(bus)
@@ -42,7 +42,10 @@ export async function createBus(req: Request, res: Response): Promise<void> {
                     status: "active",
                     endedAt: null,
                     updatedAt: new Date(),
-                    // route is intentionally NOT reset — old route is preserved
+                    route: [
+                        { lat, lng, stop_name: s }, // ✅ fresh source coords
+                        { lat, lng, stop_name: d }, // ✅ destination placeholder
+                    ],
                 })
                 .where(
                     and(
@@ -62,14 +65,17 @@ export async function createBus(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        // First time — initialize route as [source, destination]
+        // First time — initialize route with source and destination
         const [newBus] = await db
             .insert(bus)
             .values({
                 bus_number,
                 source: s,
                 destination: d,
-                route: [],
+                route: [
+                    { lat, lng, stop_name: s }, // ✅ source with coordinates
+                    { lat, lng, stop_name: d }, // ✅ destination placeholder
+                ],
             })
             .returning();
 
@@ -88,12 +94,11 @@ export async function createBus(req: Request, res: Response): Promise<void> {
 
 
 // ── 2) Update Route ───────────────────────────────────────────────────────────
-// Called when driver pins a new stop during the trip
 export async function updateRoute(req: Request, res: Response): Promise<void> {
-    console.log("[updateRoute] body received:", req.body); 
+    console.log("[updateRoute] body received:", req.body);
     try {
         const { tripId } = req.params;
-        const { lat, lng, stop_name } = req.body; // ✅ added stop_name
+        const { lat, lng, stop_name } = req.body;
 
         if (lat === undefined || lng === undefined) {
             res.status(400).json({ success: false, message: "lat and lng are required." });
@@ -115,12 +120,12 @@ export async function updateRoute(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const newStop = { lat, lng, stop_name: stop_name || "Unknown" }; // ✅ added stop_name
+        const newStop: Stop = { lat, lng, stop_name: stop_name || "Unknown" };
         const currentRoute = Array.isArray(existing.route) ? existing.route as Stop[] : [];
 
-        // Skip if last stop is the same coordinate (duplicate consecutive pin)
-        const last = currentRoute[currentRoute.length - 1];
-        const skipped = last && last.lat === lat && last.lng === lng;
+        // Skip if last pinned stop (second to last, before destination) has same coordinates
+        const lastPinned = currentRoute[currentRoute.length - 2];
+        const skipped = lastPinned && lastPinned.lat === lat && lastPinned.lng === lng;
 
         if (skipped) {
             res.status(200).json({
@@ -132,8 +137,11 @@ export async function updateRoute(req: Request, res: Response): Promise<void> {
             return;
         }
 
+        // Insert before destination (last element)
         const destination = currentRoute[currentRoute.length - 1];
-        const newRoute = [...currentRoute.slice(0, -1), newStop, destination];
+        const newRoute = destination
+            ? [...currentRoute.slice(0, -1), newStop, destination]
+            : [...currentRoute, newStop];
 
         const [updated] = await db
             .update(bus)
@@ -159,6 +167,12 @@ export async function updateRoute(req: Request, res: Response): Promise<void> {
 export async function endTrip(req: Request, res: Response): Promise<void> {
     try {
         const { tripId } = req.params;
+        const { lat, lng } = req.body; // ✅ added lat, lng
+
+        if (lat === undefined || lng === undefined) {
+            res.status(400).json({ success: false, message: "lat and lng are required." });
+            return;
+        }
 
         const [existingTrip] = await db
             .select()
@@ -175,9 +189,22 @@ export async function endTrip(req: Request, res: Response): Promise<void> {
             return;
         }
 
+        // ✅ Update destination (last stop) with actual ending coordinates
+        const currentRoute = Array.isArray(existingTrip.route) ? existingTrip.route as Stop[] : [];
+        const lastStop = currentRoute[currentRoute.length - 1];
+        const updatedRoute: Stop[] = [
+            ...currentRoute.slice(0, -1),
+            { ...lastStop, lat, lng }, // ✅ update destination with real coords
+        ];
+
         const [updatedBus] = await db
             .update(bus)
-            .set({ status: "completed", endedAt: new Date(), updatedAt: new Date() })
+            .set({
+                status: "completed",
+                endedAt: new Date(),
+                updatedAt: new Date(),
+                route: updatedRoute, // ✅ save updated route
+            })
             .where(eq(bus.tripId, tripId as string))
             .returning();
 
@@ -200,7 +227,6 @@ export async function endTrip(req: Request, res: Response): Promise<void> {
 
 
 // ── 4) Get Stops ──────────────────────────────────────────────────────────────
-// Returns the current route/stops for frontend display
 export async function getStops(req: Request, res: Response): Promise<void> {
     try {
         const { tripId } = req.params;
@@ -215,14 +241,14 @@ export async function getStops(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const route = Array.isArray(existing.route) ? existing.route as Stop[] : []; // ✅ was: as string[]
+        const route = Array.isArray(existing.route) ? existing.route as Stop[] : [];
 
         res.status(200).json({
             success: true,
             bus_number: existing.bus_number,
             source: existing.source,
             destination: existing.destination,
-            stops: route.map((name, idx) => ({ idx, name })),
+            stops: route.map((stop, idx) => ({ idx, stop })),
         });
 
     } catch (err) {

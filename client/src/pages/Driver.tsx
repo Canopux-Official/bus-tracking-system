@@ -33,61 +33,73 @@ export default function Driver() {
   // } as const;
 
 
-  // 1. Start Trip.
-  const handleSubmitTrip = async () => {
-    if (!busNo || !source || !destination) {
-      alert("Please fill all fields");
-      return;
+// 1. Start Trip.
+const handleSubmitTrip = async () => {
+  if (!busNo || !source || !destination) {
+    alert("Please fill all fields");
+    return;
+  }
+  try {
+    setLoading(true);
+
+    if (environment === "production") {
+      await fetch(python_backend_url)
+        .then(res => {
+          if (!res.ok) throw new Error("Backend wake-up failed");
+          console.log("Backend woke up!");
+        })
+        .catch(err => {
+          console.error("Failed to wake backend:", err);
+        });
     }
-    try {
-      setLoading(true);
 
-      if (environment === "production") {
-        await fetch(python_backend_url)
-          .then(res => {
-            if (!res.ok) throw new Error("Backend wake-up failed");
-            console.log("Backend woke up!");
-          })
-          .catch(err => {
-            console.error("Failed to wake backend:", err);
-          });
-      }
+    // ✅ Get current location before starting trip
+    const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject)
+    );
+    const { latitude: lat, longitude: lng } = position.coords;
 
-      const res = await startTrip({ busNo, source, destination });
-      const tripId = res.tripId;
-      if (!tripId) throw new Error("Invalid response from server");
+    const res = await startTrip({ busNo, source, destination, lat, lng }); // ✅ pass coords
+    const tripId = res.tripId;
+    if (!tripId) throw new Error("Invalid response from server");
 
-      console.log("Trip Started:", tripId);
-      setTripId(tripId);
-      setTripStarted(true);
+    console.log("Trip Started:", tripId);
+    setTripId(tripId);
+    setTripStarted(true);
 
-    } catch (err) {
-      console.error("Start trip failed:", err);
-      alert("Failed to start trip");
-    } finally {
-      setLoading(false);
+  } catch (err) {
+    console.error("Start trip failed:", err);
+    alert("Failed to start trip");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+// 2. End Trip.
+const handleEndTrip = async () => {
+  try {
+    // ✅ Get current location before ending trip
+    const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject)
+    );
+    const { latitude: lat, longitude: lng } = position.coords;
+
+    if (tripId) {
+      await endTrip(tripId, lat, lng); // ✅ pass coords
+      console.log("Trip Ended:", tripId);
     }
-  };
-
-
-  // 2. End Trip.
-  const handleEndTrip = async () => {
-    try {
-      if (tripId) {
-        await endTrip(tripId);
-        console.log("Trip Ended:", tripId);
-      }
-    } catch (err) {
-      console.error("End trip failed", err);
-    }
-    stopTracking();
-    resetTrip();
-    setTripStarted(false);
-    setTripId(null);
-    setBusNo("");
-    setSource("");
-    setDestination("");
-  };
+  } catch (err) {
+    console.error("End trip failed", err);
+  }
+  stopTracking();
+  resetTrip();
+  setTripStarted(false);
+  setTripId(null);
+  setBusNo("");
+  setSource("");
+  setDestination("");
+};
 
 
   // 3. Pin Stop — uses the last location sent by the tracking hook
