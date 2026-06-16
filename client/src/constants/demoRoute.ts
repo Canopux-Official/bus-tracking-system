@@ -1,7 +1,4 @@
-export const USE_DEMO = true;
-
-
-// Format: [latitude, longitude, dwellPings]
+export const USE_DEMO = import.meta.env.VITE_USE_DEMO === 'true';
 
 export const DEMO_ROUTE: [number, number, number][] = [
   [20.289621, 85.741105, 0],
